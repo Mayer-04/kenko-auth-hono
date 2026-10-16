@@ -1,0 +1,35 @@
+# Ejemplo SIN secretos (no copiar valores reales ni passwords).
+# La password maestra la genera RDS en Secrets Manager: no va aqui.
+# Uso: cp terraform.tfvars.example terraform.tfvars (ignorado por git) y ajustar.
+
+aws_region      = "us-east-1"
+identifier      = "kenko-auth"
+database_name   = "kenko_auth"
+master_username = "mayer"
+engine_version  = "18.6"
+instance_class  = "db.t4g.micro"
+
+allocated_storage = 20
+port              = 5432
+
+# VPC default verificada en us-east-1 (prod: VPC dedicada).
+vpc_id = "vpc-0eac7cb7fd3862d11"
+subnet_ids = [
+  "subnet-015aae8e1e38ee294", # us-east-1a
+  "subnet-0c06f7d00049a1631", # us-east-1b
+  "subnet-0e3607da64b240a24", # us-east-1c
+]
+
+# Sin ingreso por defecto (seguro). Anadir aqui las SGs/CIDRs de las apps.
+allowed_ingress_security_group_ids = []
+allowed_ingress_cidr_blocks        = []
+
+backup_retention_period = 7
+deletion_protection     = false # prod: true
+multi_az                = false # prod: evaluar true
+
+tags = {
+  Project     = "kenko"
+  Service     = "auth"
+  Environment = "dev"
+}
