@@ -13,12 +13,11 @@
   },
   "dependencies": {
     "@aws-sdk/client-eventbridge": "3.1152.0",
-    "@aws-sdk/client-sqs": "3.1152.0",
     "argon2": "0.45.1",
-    "drizzle-orm": "^0.45.4",
+    "drizzle-orm": "0.45.4",
     "hono": "4.13.13",
     "uuid": "14.0.3",
-    "winston": "^3.19.0",
+    "winston": "3.19.0",
     "zod": "4.6.7"
   },
   "devDependencies": {
