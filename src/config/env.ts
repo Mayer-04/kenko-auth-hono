@@ -14,28 +14,31 @@
  *   superficie que se prueba.
  */
 
-import { z } from 'zod'
+import { z } from 'zod';
 
-const SERVICE_NAME = 'kenko-auth'
+import { LogEvent } from '../shared/log-events.js';
+import { PORT_MAX, PORT_MIN } from '../shared/request-limits.js';
+import { SERVICE_NAME } from '../shared/service.js';
 
 /** Bus de eventos confirmado para el entorno de desarrollo. Ver AGENTS.md 5.2. */
-const DEFAULT_EVENT_BUS_NAME = 'kenko-dev-bus'
+const DEFAULT_EVENT_BUS_NAME = 'kenko-dev-bus';
 
-const ENVIRONMENTS = ['development', 'test', 'production'] as const
+const ENVIRONMENTS = ['development', 'test', 'production'] as const;
 
-export type Environment = (typeof ENVIRONMENTS)[number]
+export type Environment = (typeof ENVIRONMENTS)[number];
 
 /**
  * Trata una cadena vacia como variable ausente.
  * En archivos `.env` un valor sin definir llega como `''`, y no como
  * `undefined`. Sin esta conversion, `AWS_REGION=` reprobaria la validacion.
  */
-function optionalWhenPresent<TSchema extends z.ZodType>(schema: TSchema) {
+const optionalWhenPresent = <TSchema extends z.ZodType>(schema: TSchema) => {
   return z.preprocess(
-    (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
+    (value) =>
+      typeof value === 'string' && value.trim() === '' ? undefined : value,
     schema.optional(),
-  )
-}
+  );
+};
 
 /**
  * `z.object` y no `z.strictObject`: `process.env` contiene cientos de variables
@@ -47,52 +50,53 @@ function optionalWhenPresent<TSchema extends z.ZodType>(schema: TSchema) {
  * se conecta con `POSTGRES_URL`.
  */
 export const EnvSchema = z.object({
-  PORT: z.coerce.number().int().min(1).max(65_535),
+  PORT: z.coerce.number().int().min(PORT_MIN).max(PORT_MAX),
   ENVIRONMENT: z.enum(ENVIRONMENTS),
   EVENT_BUS_NAME: z.string().min(1).default(DEFAULT_EVENT_BUS_NAME),
   AWS_REGION: optionalWhenPresent(z.string().min(1)),
   POSTGRES_URL: z.url(),
   AWS_RDS_POSTGRES_URL: optionalWhenPresent(z.url()),
-})
+});
 
-export type Env = z.infer<typeof EnvSchema>
+export type Env = z.infer<typeof EnvSchema>;
 
 export type ConfigurationIssue = {
   /** Ruta de la variable dentro del esquema, por ejemplo `AWS_RDS_POSTGRES_URL`. */
-  variable: string
+  variable: string;
   /** Codigo de fallo de Zod, por ejemplo `invalid_type` o `invalid_value`. */
-  code: string
+  code: string;
   /** Mensaje del validador. Nunca contiene el valor rechazado. */
-  message: string
-}
+  message: string;
+};
 
 export type EnvParseResult =
   | { ok: true; data: Env }
-  | { ok: false; issues: ConfigurationIssue[] }
+  | { ok: false; issues: ConfigurationIssue[] };
 
 /**
  * Proyecta los issues de Zod a una lista de campos conocidos. No se hace spread
  * del objeto original: Zod puede incluir el valor rechazado en el issue y eso
  * filtraria credenciales a los logs.
  */
-function toConfigurationIssues(error: z.ZodError): ConfigurationIssue[] {
+const toConfigurationIssues = (error: z.ZodError): ConfigurationIssue[] => {
   return error.issues.map((issue) => ({
-    variable: issue.path.map((segment) => String(segment)).join('.') || '(raiz)',
+    variable:
+      issue.path.map((segment) => String(segment)).join('.') || '(raiz)',
     code: issue.code,
     message: issue.message,
-  }))
-}
+  }));
+};
 
 /** Valida un entorno sin efectos secundarios. */
-export function parseEnv(source: NodeJS.ProcessEnv): EnvParseResult {
-  const result = EnvSchema.safeParse(source)
+export const parseEnv = (source: NodeJS.ProcessEnv): EnvParseResult => {
+  const result = EnvSchema.safeParse(source);
 
   if (result.success) {
-    return { ok: true, data: result.data }
+    return { ok: true, data: result.data };
   }
 
-  return { ok: false, issues: toConfigurationIssues(result.error) }
-}
+  return { ok: false, issues: toConfigurationIssues(result.error) };
+};
 
 /**
  * Log de arranque, deliberadamente sin dependencias.
@@ -102,19 +106,19 @@ export function parseEnv(source: NodeJS.ProcessEnv): EnvParseResult {
  * configurado. Cuando `src/config/logger.ts` entre en juego, este sigue siendo
  * el unico punto que escribe en stderr durante el bootstrap.
  */
-function writeFatalLog(details: Record<string, unknown>): void {
+const writeFatalLog = (details: Record<string, unknown>): void => {
   const record = {
     level: 'fatal',
     service: SERVICE_NAME,
-    event: 'configuration.invalid',
+    event: LogEvent.CONFIGURATION_INVALID,
     timestamp: new Date().toISOString(),
     details,
-  }
+  };
 
-  process.stderr.write(`${JSON.stringify(record)}\n`)
-}
+  process.stderr.write(`${JSON.stringify(record)}\n`);
+};
 
-let cachedEnv: Env | undefined
+let cachedEnv: Env | undefined;
 
 /**
  * Devuelve el entorno validado o termina el proceso.
@@ -122,51 +126,53 @@ let cachedEnv: Env | undefined
  * El resultado se memoriza: llamarla varias veces no repite la validacion ni
  * vuelve a leer `process.env`.
  */
-export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
+export const loadEnv = (source: NodeJS.ProcessEnv = process.env): Env => {
   if (cachedEnv !== undefined) {
-    return cachedEnv
+    return cachedEnv;
   }
 
-  const result = parseEnv(source)
+  const result = parseEnv(source);
 
   if (!result.ok) {
-    writeFatalLog({ issueCount: result.issues.length, issues: result.issues })
-    process.exit(1)
+    writeFatalLog({ issueCount: result.issues.length, issues: result.issues });
+    process.exit(1);
   }
 
-  cachedEnv = result.data
-  return cachedEnv
-}
+  cachedEnv = result.data;
+  return cachedEnv;
+};
 
-export type DatabaseTarget = 'rds' | 'local'
+export type DatabaseTarget = 'rds' | 'local';
 
 export type ResolvedDatabase = {
-  url: string
-  target: DatabaseTarget
+  url: string;
+  target: DatabaseTarget;
   /** Descripcion apta para logs: sin usuario, contrasena ni query string. */
   safeDescription: {
-    host: string
-    port: string
-    database: string
-  }
-}
+    host: string;
+    port: string;
+    database: string;
+  };
+};
 
 /**
  * Extrae host, puerto y base de una URL de conexion. Se descarta todo lo demas,
  * en particular el usuario y la contrasena.
  */
-function describeDatabaseUrl(url: string): ResolvedDatabase['safeDescription'] {
+const describeDatabaseUrl = (
+  url: string,
+): ResolvedDatabase['safeDescription'] => {
   try {
-    const parsed = new URL(url)
+    const parsed = new URL(url);
     return {
       host: parsed.hostname,
       port: parsed.port !== '' ? parsed.port : '5432',
       database: parsed.pathname.replace(/^\//, ''),
-    }
+    };
   } catch {
-    return { host: '(no analizable)', port: '5432', database: '(desconocida)' }
+    return { host: '(no analizable)', port: '5432', database: '(desconocida)' };
   }
-}
+};
 
 /**
  * Decide contra que base de datos se opera.
@@ -176,10 +182,10 @@ function describeDatabaseUrl(url: string): ResolvedDatabase['safeDescription'] {
  * llamador debe fallar y reportar: no existe fallback silencioso de RDS a local,
  * porque escribir en la base equivocada es peor que no arrancar.
  */
-export function resolveDatabase(env: Env): ResolvedDatabase {
-  const rdsUrl = env.AWS_RDS_POSTGRES_URL
-  const target: DatabaseTarget = rdsUrl === undefined ? 'local' : 'rds'
-  const url = rdsUrl ?? env.POSTGRES_URL
+export const resolveDatabase = (env: Env): ResolvedDatabase => {
+  const rdsUrl = env.AWS_RDS_POSTGRES_URL;
+  const target: DatabaseTarget = rdsUrl === undefined ? 'local' : 'rds';
+  const url = rdsUrl ?? env.POSTGRES_URL;
 
-  return { url, target, safeDescription: describeDatabaseUrl(url) }
-}
+  return { url, target, safeDescription: describeDatabaseUrl(url) };
+};
