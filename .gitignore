@@ -1,0 +1,46 @@
+# Dependencias
+node_modules/
+
+# Variables de entorno y secretos
+# El orden importa: la ultima regla gana, por eso .env.example se restaura.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.tfstate.lock.info
+crash.log
+crash.*.log
+crash.code
+*.tfvars
+!*.tfvars.example
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Pruebas y cobertura
+coverage/
+.nyc_output/
+
+# Build
+dist/
+build/
+
+# Logs
+*.log
+logs/
+
+# Editores y sistema operativo
+.idea/
+.vscode/*
+!.vscode/extensions.json
+.DS_Store
+Thumbs.db
+desktop.ini
