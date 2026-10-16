@@ -17,16 +17,19 @@ El servidor escucha en el puerto definido por `PORT` en el entorno.
 
 ## Scripts
 
-| Comando                     | Qué hace                                            |
-| --------------------------- | --------------------------------------------------- |
-| `bun run dev`               | Servidor con recarga en caliente                    |
-| `bun run typecheck`         | `tsc --noEmit`                                      |
-| `bun run test`              | Pruebas unitarias y de ruta                        |
-| `bun run test:integration`  | Pruebas que requieren PostgreSQL                    |
-| `bun run test:coverage`     | Pruebas con cobertura                               |
-| `bun run db:generate`       | Genera la migración desde el esquema Drizzle        |
-| `bun run db:migrate`        | Aplica las migraciones pendientes                   |
-| `bun run db:studio`         | Inspector visual de la base de datos                |
+| Comando                    | Qué hace                                       |
+| -------------------------- | ---------------------------------------------- |
+| `bun run dev`              | Servidor con recarga en caliente               |
+| `bun run relay`            | Worker outbox → EventBridge (proceso separado) |
+| `bun run typecheck`        | `tsc --noEmit`                                 |
+| `bun run lint`             | Biome `check` (linter + formato, sin escribir) |
+| `bun run format`           | Biome `check --write` (aplica formato y fixes) |
+| `bun run test`             | Pruebas unitarias y de ruta                    |
+| `bun run test:integration` | Pruebas que requieren PostgreSQL               |
+| `bun run test:coverage`    | Pruebas con cobertura                          |
+| `bun run db:generate`      | Genera la migración desde el esquema Drizzle   |
+| `bun run db:migrate`       | Aplica las migraciones pendientes              |
+| `bun run db:studio`        | Inspector visual de la base de datos           |
 
 ## Arquitectura
 
@@ -111,10 +114,10 @@ terraform/                        RDS PostgreSQL
 
 ### Decisiones de diseño
 
-| Decisión                  | Motivo                                                                                                                                                   |
-| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Outbox transaccional      | El usuario y el evento `UserRegistered` se confirman en la misma transacción y el relay publica después. Evita un usuario guardado sin evento.  |
-| `timestamptz` / `date`    | `timestamptz` para instantes; `date` para la fecha de nacimiento, que es fecha de calendario.                                                              |
-| UUID v7                   | Ordenable por tiempo y con menos colisiones en el índice.                                                                                                 |
-| Sin fallback de RDS       | Si la base configurada no responde se falla y se reporta. Escribir en la base equivocada es peor que no arrancar.                                          |
-| Credenciales AWS aparte   | No viven en el entorno: el SDK las resuelve por la cadena estándar (AWS CLI o rol de IAM).                                                                |
+| Decisión                | Motivo                                                                                                                                         |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| Outbox transaccional    | El usuario y el evento `UserRegistered` se confirman en la misma transacción y el relay publica después. Evita un usuario guardado sin evento. |
+| `timestamptz` / `date`  | `timestamptz` para instantes; `date` para la fecha de nacimiento, que es fecha de calendario.                                                  |
+| UUID v7                 | Ordenable por tiempo y con menos colisiones en el índice.                                                                                      |
+| Sin fallback de RDS     | Si la base configurada no responde se falla y se reporta. Escribir en la base equivocada es peor que no arrancar.                              |
+| Credenciales AWS aparte | No viven en el entorno: el SDK las resuelve por la cadena estándar (AWS CLI o rol de IAM).                                                     |
