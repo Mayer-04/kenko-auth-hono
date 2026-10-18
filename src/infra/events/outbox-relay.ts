@@ -6,6 +6,7 @@ import type winston from 'winston';
 
 import { LogEvent } from '../../shared/log-events.js';
 import type { OutboxRepository } from '../db/repositories/outbox.repository.js';
+import type { SessionCleanup } from '../db/session-cleanup.js';
 import { normalizeDetail, toPutEventsEntry } from './eventbridge-publisher.js';
 import {
   BACKOFF_FIRST_RETRY_SECONDS,
@@ -43,6 +44,8 @@ export type RelayDeps = {
   eventBridge: EventBridgeClient;
   eventBusName: string;
   logger: winston.Logger;
+  /** Purga de sesiones (opcional: los tests existentes no la pasan). */
+  sessionCleanup?: SessionCleanup;
 };
 
 export type RelayOutcome = { published: number; failed: number; dead: number };
@@ -126,8 +129,22 @@ export const startRelayLoop = async (
       deps.logger.error(LogEvent.RELAY_TICK_FAILED, {
         error: err instanceof Error ? err.message : 'unknown',
       });
-    } finally {
-      if (!stopped) setTimeout(tick, intervalMs).unref?.();
+    }
+    // La purga es oportunista: si falla, se registra y el relay sigue.
+    if (deps.sessionCleanup !== undefined) {
+      try {
+        const { ran, deleted } = await deps.sessionCleanup.runIfDue();
+        if (ran) {
+          deps.logger.info(LogEvent.SESSION_CLEANUP, { deleted });
+        }
+      } catch (err) {
+        deps.logger.error(LogEvent.SESSION_CLEANUP_FAILED, {
+          error: err instanceof Error ? err.message : 'unknown',
+        });
+      }
+    }
+    if (!stopped) {
+      setTimeout(tick, intervalMs).unref?.();
     }
   };
 

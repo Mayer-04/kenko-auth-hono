@@ -23,6 +23,15 @@ import { SERVICE_NAME } from '../shared/service.js';
 /** Bus de eventos confirmado para el entorno de desarrollo. Ver AGENTS.md 5.2. */
 const DEFAULT_EVENT_BUS_NAME = 'kenko-dev-bus';
 
+/** Emisor por defecto: coincide con el `Source` de EventBridge (AGENTS.md 5.3). */
+const DEFAULT_JWT_ISSUER = 'kenko.auth';
+
+/** Audiencia por defecto para los microservicios consumidores. */
+const DEFAULT_JWT_AUDIENCE = 'kenko-api';
+
+/** Longitud minima aceptada para el secreto HS256 en produccion. */
+const JWT_SECRET_MIN_LENGTH_PROD = 32;
+
 const ENVIRONMENTS = ['development', 'test', 'production'] as const;
 
 export type Environment = (typeof ENVIRONMENTS)[number];
@@ -53,6 +62,9 @@ export const EnvSchema = z.object({
   PORT: z.coerce.number().int().min(PORT_MIN).max(PORT_MAX),
   ENVIRONMENT: z.enum(ENVIRONMENTS),
   EVENT_BUS_NAME: z.string().min(1).default(DEFAULT_EVENT_BUS_NAME),
+  JWT_SECRET: z.string().min(1),
+  JWT_ISSUER: z.string().min(1).default(DEFAULT_JWT_ISSUER),
+  JWT_AUDIENCE: z.string().min(1).default(DEFAULT_JWT_AUDIENCE),
   AWS_REGION: optionalWhenPresent(z.string().min(1)),
   POSTGRES_URL: z.url(),
   AWS_RDS_POSTGRES_URL: optionalWhenPresent(z.url()),
@@ -135,6 +147,25 @@ export const loadEnv = (source: NodeJS.ProcessEnv = process.env): Env => {
 
   if (!result.ok) {
     writeFatalLog({ issueCount: result.issues.length, issues: result.issues });
+    process.exit(1);
+  }
+
+  // Guarda de produccion: un secreto HS256 corto es vulnerable a fuerza bruta.
+  // En desarrollo se permite (lo define el dueño), en produccion se falla.
+  if (
+    result.data.ENVIRONMENT === 'production' &&
+    result.data.JWT_SECRET.trim().length < JWT_SECRET_MIN_LENGTH_PROD
+  ) {
+    writeFatalLog({
+      issueCount: 1,
+      issues: [
+        {
+          variable: 'JWT_SECRET',
+          code: 'too_small',
+          message: `Debe tener al menos ${JWT_SECRET_MIN_LENGTH_PROD} caracteres en produccion.`,
+        },
+      ],
+    });
     process.exit(1);
   }
 

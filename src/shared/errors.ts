@@ -12,6 +12,7 @@ export type ErrorCode =
   | 'VALIDATION_ERROR'
   | 'REGISTER_CONFLICT'
   | 'UNAUTHORIZED'
+  | 'TOO_MANY_REQUESTS'
   | 'NOT_FOUND'
   | 'DB_UNAVAILABLE'
   | 'INTERNAL_ERROR';
@@ -20,6 +21,7 @@ const STATUS_BY_CODE: Record<ErrorCode, number> = {
   VALIDATION_ERROR: HttpStatus.BAD_REQUEST,
   REGISTER_CONFLICT: HttpStatus.CONFLICT,
   UNAUTHORIZED: HttpStatus.UNAUTHORIZED,
+  TOO_MANY_REQUESTS: HttpStatus.TOO_MANY_REQUESTS,
   NOT_FOUND: HttpStatus.NOT_FOUND,
   DB_UNAVAILABLE: HttpStatus.SERVICE_UNAVAILABLE,
   INTERNAL_ERROR: HttpStatus.INTERNAL_ERROR,
@@ -53,6 +55,25 @@ export const registerConflict = (correlationId: string): AppError => {
   return new AppError(
     'REGISTER_CONFLICT',
     'No se pudo completar el registro.',
+    { correlationId },
+  );
+};
+
+/**
+ * Credenciales invalidas: mismo error exista o no la cuenta, con o sin
+ * clave correcta (anti-enumeracion, Ley 1581). Nunca distingue el motivo.
+ */
+export const invalidCredentials = (correlationId: string): AppError => {
+  return new AppError('UNAUTHORIZED', 'Credenciales invalidas.', {
+    correlationId,
+  });
+};
+
+/** Limite de intentos de login superado para la IP. */
+export const tooManyAttempts = (correlationId: string): AppError => {
+  return new AppError(
+    'TOO_MANY_REQUESTS',
+    'Demasiados intentos. Intente mas tarde.',
     { correlationId },
   );
 };

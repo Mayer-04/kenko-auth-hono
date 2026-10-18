@@ -547,3 +547,58 @@ Comienza **sin escribir código**:
 5. Propón únicamente la primera etapa de implementación y espera confirmación.
 
 El principio rector es: **trabajar paso a paso, verificar antes de asumir y mantener el alcance limitado a `Register` hasta recibir nuevas instrucciones.**
+
+---
+
+## Realización del login
+
+Para la realización del login lo que buscaremos es pedir el numero de documento (como usuario) y su contraseña.
+
+Analizando el proyecto que rutas o endpoints recomiendas crear con las mejores practicas de producción y de proyectos reales?
+
+La idea es implementar las siguientes practicas para la realización del login con las mejores practicas:
+
+- JWT (access token, refresh token, revocation y rotation).
+- Utilizar Cookies para este proceso. Puedes usar directamente el que ofrece Hono o un externo (dime cual si es mejor está opción). Agrego documetanción oficial: https://hono.dev/docs/helpers/cookie
+- Guardar en la `claims del JWT` los campos `Email`, FisrtName y el id del usuario que se registro o se esta logeando.
+- Si requieres definir nuevas variables de entorno lo puedes hacer
+- Podrias crear dos tablas como UserSessions y RefreshToken (estos nombres y tablas pueden cambiar según tu recomendación o mejor practica)
+
+Consideraciones a tener en cuenta con las demás microservicios:
+
+Sí, funciona. Con firma simétrica (HS256) y el mismo secreto en todos los servicios, Authentication firma el token y cada microservicio puede verificar esa firma y leer los claims sin consultar a nadie. El cliente manda Authorization: Bearer <token> en cada petición y listo.
+
+Para que funcione de verdad, deben cumplirse estas condiciones:
+
+El secreto debe ser idéntico, byte por byte. Un espacio o un salto de línea de más en la variable de entorno basta para que la firma falle. Si Authentication usa una librería que espera el secreto en Base64 (pasa en algunas de Java y .NET) y los demás lo usan como texto plano, los bytes no coinciden y todos los tokens darán 401. Acuerden en qué formato se guarda.
+El algoritmo debe ser el mismo. Fijen HS256 en todos y declárenlo explícitamente al validar (algorithms=["HS256"]), sin aceptar el que venga en el encabezado del token.
+Los nombres de los claims deben coincidir. Según lo que dices, serían userId, firstName y email. Esto cambia el ejemplo anterior, donde usaba sub para el id.
+Authentication debe incluir exp, y los demás deben exigirlo al validar, para que un token sin expiración no valga para siempre.
+El secreto debe tener al menos 32 caracteres aleatorios y vivir en una variable de entorno (.env fuera del repositorio), no en el código. Las versiones recientes de PyJWT avisan si es más corto.
+
+Como no van a cambiar la clave, el riesgo práctico es este: cualquiera que la conozca puede fabricar tokens válidos para cualquier usuario. Un microservicio comprometido o un .env subido a Git por error bastan. Para el proyecto es aceptable, pero que ninguna copia quede en el repositorio.
+
+2.
+
+3. El enlace de recuperación de contraseña
+
+Es el enlace que le llega al usuario cuando olvidó su contraseña. Permite cambiarla sin estar logueado, porque quien lo recibe demuestra que controla ese correo. Se ve así:
+
+https://kenko.example.com/reset-password?token=q8Zs1x...
+
+Cómo se genera y usa, paso a paso:
+
+El usuario pulsa “Olvidé mi contraseña” en el frontend y escribe su correo.
+Authentication genera un token aleatorio (por ejemplo con secrets.token_urlsafe(32)), lo guarda en su base de datos junto con el usuario y una fecha de expiración (por ejemplo 20 minutos), y publica PasswordResetRequested con email, firstName, resetToken y expiresAt.
+Notifications recibe el evento y arma la URL: FRONTEND_BASE_URL (configuración) + /reset-password?token= + el resetToken del evento. Luego envía el correo.
+El usuario hace clic. El frontend muestra un formulario de nueva contraseña y manda el token y la contraseña nueva a Authentication.
+Authentication comprueba que el token existe, no ha expirado y no se ha usado; cambia la contraseña e invalida el token.
+
+Decisiones de diseño:
+
+Lo genera Authentication, no Notifications. Saber si un token es válido es asunto de Authentication. Notifications solo lo transporta y no necesita conocer nada de contraseñas.
+El token es una cadena aleatoria, no un JWT. Se guarda en la base de datos, así se puede invalidar al usarlo, algo que un JWT no permite fácilmente.
+Buenas prácticas mínimas: que sea de un solo uso, que expire pronto, que nunca se imprima en los logs, y que la pantalla de “olvidé mi contraseña” responda igual exista o no el correo.
+expiresAt llega en UTC. Si el correo dice “vence a las 4:30 p. m.”, conviértelo a la hora de Colombia (America/Bogota) al renderizar.
+
+Este segundo no lo tendremos en cuenta de momento. Solo es para que conozcas que vamos a realizar. Solo nos centraremos unicamente y exclusivamente en la feature de `login`. No haremos otro tipo de código que no sea de esto.

@@ -10,6 +10,8 @@ import { loadEnv, resolveDatabase } from './config/env.js';
 import { initLogger } from './config/logger.js';
 import { createDb } from './infra/db/client.js';
 import { makeOutboxRepository } from './infra/db/repositories/outbox.repository.js';
+import { makeSessionRepository } from './infra/db/repositories/session.repository.js';
+import { makeSessionCleanup } from './infra/db/session-cleanup.js';
 import {
   createEventBridgeClient,
   resolveBusName,
@@ -27,6 +29,7 @@ logger.info(LogEvent.RELAY_STARTING, {
 
 const dbClient = createDb(database.url);
 const outbox = makeOutboxRepository(dbClient);
+const sessionCleanup = makeSessionCleanup(makeSessionRepository(dbClient));
 const eventBridge = createEventBridgeClient(env.AWS_REGION);
 const eventBusName = resolveBusName(env.EVENT_BUS_NAME);
 
@@ -35,6 +38,7 @@ const stop = await startRelayLoop({
   eventBridge,
   eventBusName,
   logger,
+  sessionCleanup,
 });
 
 const shutdown = () => {

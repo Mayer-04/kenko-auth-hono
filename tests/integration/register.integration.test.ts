@@ -5,8 +5,19 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { buildApp } from '../../src/app.js';
 import { loadEnv, resolveDatabase } from '../../src/config/env.js';
+import {
+  makeLoginService,
+  makeLogoutService,
+  makeRefreshService,
+} from '../../src/features/login/index.js';
+import { LoginLimits } from '../../src/features/login/login.limits.js';
+import { createLoginRateLimiter } from '../../src/features/login/login.rate-limit.js';
 import { makeRegisterService } from '../../src/features/register/register.service.js';
+import { makeRefreshTokenFactory } from '../../src/infra/auth/refresh-token.js';
+import { makeAccessTokenIssuer } from '../../src/infra/auth/token-issuer.js';
 import { createDb } from '../../src/infra/db/client.js';
+import { makeLoginCredentialsRepository } from '../../src/infra/db/repositories/login-credentials.repository.js';
+import { makeSessionRepository } from '../../src/infra/db/repositories/session.repository.js';
 import { makeUserRepository } from '../../src/infra/db/repositories/user.repository.js';
 import { outbox, users } from '../../src/infra/db/schema/index.js';
 import { makeArgon2Hasher } from '../../src/infra/password/argon2-hasher.js';
@@ -42,7 +53,39 @@ describe('POST /auth/register', () => {
       newEventId: () => newId(),
       nowIso: () => new Date().toISOString(),
     });
-    app = buildApp(service);
+    const credentials = makeLoginCredentialsRepository(client);
+    const sessions = makeSessionRepository(client);
+    const refresher = makeRefreshTokenFactory();
+    const issuer = makeAccessTokenIssuer({
+      secret: env.JWT_SECRET,
+      issuer: env.JWT_ISSUER,
+      audience: env.JWT_AUDIENCE,
+      ttlSec: LoginLimits.ACCESS_TOKEN_TTL_SEC,
+    });
+    app = buildApp({
+      registerService: service,
+      loginService: makeLoginService({
+        credentials,
+        sessions,
+        verifier: hasher,
+        signer: issuer,
+        refresher,
+        newSessionId: () => newId(),
+        newFamilyId: () => newId(),
+        nowIso: () => new Date().toISOString(),
+      }),
+      refreshService: makeRefreshService({
+        credentials,
+        sessions,
+        signer: issuer,
+        refresher,
+        newSessionId: () => newId(),
+        nowIso: () => new Date().toISOString(),
+      }),
+      logoutService: makeLogoutService({ sessions, refresher }),
+      rateLimiter: createLoginRateLimiter(),
+      cookieSecure: false,
+    });
   });
 
   afterAll(async () => {

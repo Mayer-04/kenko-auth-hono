@@ -17,6 +17,8 @@ export const LogEvent = {
   OUTBOX_PUBLISH_FAILED: 'outbox.publish_failed',
   OUTBOX_PAYLOAD_NORMALIZED: 'outbox.payload_normalized',
   OUTBOX_PAYLOAD_DEAD: 'outbox.payload_dead',
+  SESSION_CLEANUP: 'session.cleanup',
+  SESSION_CLEANUP_FAILED: 'session.cleanup_failed',
 } as const;
 
 export type LogEvent = (typeof LogEvent)[keyof typeof LogEvent];
