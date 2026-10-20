@@ -29,9 +29,6 @@ const LETTER = /\p{L}/u;
 const E164 = new RegExp(
   `^\\+[1-9]\\d{${RegisterLimits.PHONE_E164_MIN_DIGITS},${RegisterLimits.PHONE_E164_MAX_DIGITS}}$`,
 );
-const DOCUMENT_NUMBER = new RegExp(
-  `^[A-Z0-9]{${RegisterLimits.DOCUMENT_NUMBER_MIN_LENGTH},${RegisterLimits.DOCUMENT_NUMBER_MAX_LENGTH}}$`,
-);
 
 const utcToday = (): string => {
   return new Date().toISOString().slice(0, 10);
@@ -55,6 +52,34 @@ const nameField = (label: string) =>
       (v) => LETTER.test(v),
       `${label} debe contener al menos una letra.`,
     );
+
+/**
+ * Campo de contrasena reutilizable (min 8, max 128, deny-list).
+ *
+ * Unica fuente de las reglas de contrasena: `register` y `passwordreset`
+ * importan este esquema; `confirmPassword` solo valida y nunca se persiste.
+ */
+export const PasswordFieldSchema = z
+  .string()
+  .min(
+    RegisterLimits.PASSWORD_MIN_LENGTH,
+    'La contrasena debe tener al menos 8 caracteres.',
+  )
+  .max(
+    RegisterLimits.PASSWORD_MAX_LENGTH,
+    'La contrasena no puede superar 128 caracteres.',
+  )
+  .refine(
+    (v) => !COMMON_PASSWORDS.has(v.toLowerCase()),
+    'Elija una contrasena menos comun.',
+  );
+
+/** Regex del numero de documento (mismas reglas que en registro). */
+export const documentNumberRegex = (): RegExp => {
+  return new RegExp(
+    `^[A-Z0-9]{${RegisterLimits.DOCUMENT_NUMBER_MIN_LENGTH},${RegisterLimits.DOCUMENT_NUMBER_MAX_LENGTH}}$`,
+  );
+};
 
 export const RegisterInputSchema = z.object({
   firstName: nameField('Nombres'),
@@ -96,22 +121,9 @@ export const RegisterInputSchema = z.object({
   ),
   documentNumber: z.preprocess(
     (v) => (typeof v === 'string' ? normalizeDocumentNumber(v) : v),
-    z.string().regex(DOCUMENT_NUMBER, 'Numero de documento invalido.'),
+    z.string().regex(documentNumberRegex(), 'Numero de documento invalido.'),
   ),
-  password: z
-    .string()
-    .min(
-      RegisterLimits.PASSWORD_MIN_LENGTH,
-      'La contrasena debe tener al menos 8 caracteres.',
-    )
-    .max(
-      RegisterLimits.PASSWORD_MAX_LENGTH,
-      'La contrasena no puede superar 128 caracteres.',
-    )
-    .refine(
-      (v) => !COMMON_PASSWORDS.has(v.toLowerCase()),
-      'Elija una contrasena menos comun.',
-    ),
+  password: PasswordFieldSchema,
   confirmPassword: z.string(),
 });
 

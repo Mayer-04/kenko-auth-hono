@@ -11,6 +11,8 @@ import { HttpStatus } from './http-status.js';
 export type ErrorCode =
   | 'VALIDATION_ERROR'
   | 'REGISTER_CONFLICT'
+  | 'PASSWORD_RESET_INVALID'
+  | 'RATE_LIMITED'
   | 'UNAUTHORIZED'
   | 'NOT_FOUND'
   | 'DB_UNAVAILABLE'
@@ -19,6 +21,8 @@ export type ErrorCode =
 const STATUS_BY_CODE: Record<ErrorCode, number> = {
   VALIDATION_ERROR: HttpStatus.BAD_REQUEST,
   REGISTER_CONFLICT: HttpStatus.CONFLICT,
+  PASSWORD_RESET_INVALID: HttpStatus.BAD_REQUEST,
+  RATE_LIMITED: HttpStatus.TOO_MANY_REQUESTS,
   UNAUTHORIZED: HttpStatus.UNAUTHORIZED,
   NOT_FOUND: HttpStatus.NOT_FOUND,
   DB_UNAVAILABLE: HttpStatus.SERVICE_UNAVAILABLE,
@@ -68,5 +72,35 @@ export const internalError = (
       correlationId,
       cause,
     },
+  );
+};
+
+/**
+ * Token de restablecimiento invalido, expirado o ya usado: UN unico error
+ * generico (anti-enumeracion). No distingue el motivo ni revela si existio.
+ */
+export const invalidResetToken = (correlationId: string): AppError => {
+  return new AppError(
+    'PASSWORD_RESET_INVALID',
+    'El enlace de restablecimiento no es valido o ha expirado.',
+    { correlationId },
+  );
+};
+
+/** La nueva contrasena es igual a la actual (solo aplica con token valido). */
+export const reusedPassword = (correlationId: string): AppError => {
+  return new AppError(
+    'VALIDATION_ERROR',
+    'La contrasena no puede ser igual a la actual.',
+    { correlationId },
+  );
+};
+
+/** Limite de solicitudes alcanzado (rate limiting). */
+export const rateLimitedError = (correlationId: string): AppError => {
+  return new AppError(
+    'RATE_LIMITED',
+    'Demasiadas solicitudes. Intente de nuevo mas tarde.',
+    { correlationId },
   );
 };
