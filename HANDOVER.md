@@ -1,13 +1,19 @@
-# Handover — Kenko Auth (`register` hecho, resto pendiente)
+# Handover — Kenko Auth (`register` y `password-reset` hechos, resto pendiente)
 
-> Resumen para un agente que continúe el trabajo. Alcance completado: **solo `Register`**.
-> Pendientes: **login, recuperación de contraseña, MFA**. Leer `AGENTS.md` primero.
+> Resumen para un agente que continúe el trabajo. Alcance completado:
+> **`Register` y `Recuperación de contraseña` (forgot/reset)**.
+> Pendientes: **login, MFA**. Leer `AGENTS.md` primero.
 
 ## 1. Estado
 
 - `POST /auth/register` → 201 `{data:{userId}}`, 400 inválido, 409 genérico en duplicado.
-- `GET /health` → 200. Todo en la rama `register`, sin commitear.
-- Tests: 22 unitarias + 3 integración en verde. `tsc`, Biome `check` limpios.
+- `POST /auth/password/forgot` → 200 siempre igual (anti-enumeración); genera token
+  (SHA-256 en DB) + outbox `PasswordResetRequested` en una transacción; 429 rate limit.
+- `POST /auth/password/reset` → 200; `400 PASSWORD_RESET_INVALID` único para
+  inválido/expirado/usado; consumo atómico + cambio de hash Argon2id en una transacción.
+- `GET /health` → 200. Rama `password-reset`, sin commitear al escribir este handover.
+- Tests: 45 unitarias + 14 integración en verde. `tsc` y Biome `check` limpios.
+- OpenAPI: `docs/openapi.yaml` (endpoints de reset).
 
 ## 2. Stack (versiones exactas en `package.json`)
 
@@ -80,13 +86,27 @@ ante cambios de esquema (verificado: sin deriva).
 
 ## 8. Pendiente (para quien continúe)
 
-1. Login (documento + contraseña), `PasswordResetRequested` (**diseñar token antes**:
-   no está decidido si el token viaja en el evento), `MfaEnabled` (**sin contrato**).
-2. Terraform RDS: código listo en `terraform/`, `apply` manual del dueño (usuario `mayer`,
+1. Login (documento + contraseña), `MfaEnabled` (**sin contrato**).
+   En el consumo atómico de reset quedó documentado el punto de extensión:
+   revocar sesiones/refresh tokens en la MISMA transacción cuando existan.
+2. **Coordinación Notifications (no es código de este repo):** la regla real
+   `kenko-dev-auth-to-notifications` solo enruta `UserRegistered`; Notifications
+   debe extender su patrón (o crear una regla) para `PasswordResetRequested`,
+   y acordar la plantilla: construye la URL con su configuración base +
+   fragmento `#token=` (el evento no lleva URL), idempotencia por `eventId`,
+   tolerancia a duplicados. Verificado Oct-2026 (solo lectura): bus
+   `kenko-dev-bus` con esa única regla; colas `kenko-dev-notifications-authentication`
+   (+ DLQ, retención 24h/14d, SSE activo); no existen `kenko-dev-auth-to-profile`
+   ni la cola de Profile que mencionaba el handover anterior.
+3. Alarmas: `dead` en outbox debe alarmar (metric filter sobre
+   `outbox.payload_dead` / CloudWatch) — pendiente de infra.
+4. Terraform RDS: código listo en `terraform/`, `apply` manual del dueño (usuario `mayer`,
    password gestionada por RDS en Secrets Manager). `terraform/.terraform.lock.hcl` sin
    versionar (recomendado versionarlo).
-3. Operación del relay en prod, alarmas de rezago, `Dockerfile` vacío, backend remoto de
+5. Operación del relay en prod, alarmas de rezago, `Dockerfile` vacío, backend remoto de
    Terraform, `deletion_protection/multi_az`/VPC dedicada para prod.
-4. Revisión jurídica Ley 1581/historia clínica y tuning Argon2id en prod.
-5. Para una feature nueva, clonar el recorte `register/`: `types → schema → port →
-service (+fakes) → route → container → repo/migración → tests → relay intacto`.
+6. Revisión jurídica Ley 1581/historia clínica (retención del payload con datos de
+   contacto y token en outbox/DLQ) y tuning Argon2id en prod.
+7. Para una feature nueva, clonar el recorte `register/` o `passwordreset/`:
+   `types → schema → port → service (+fakes) → route → container → repo/migración →
+   tests → relay agnostico (usa el eventType de la fila como DetailType)`.

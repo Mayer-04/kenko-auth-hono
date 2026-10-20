@@ -19,7 +19,7 @@ Capacidades del sistema:
 ## Microservicios y límites de responsabilidad
 
 - `Authentication`: registro de credenciales, autenticación y emisión de tokens.
-- `Profile`: datos del perfil del usuario (consulta y actualización).
+- `Profile`: perfil del usuario (creación y actualización).
 - `Documents`: autorizaciones médicas, historial médico y certificado médico.
 - `Appointments`: agendamiento, cancelación y reprogramación de citas.
 - `Notifications`: envío de notificaciones y correos como reacción a eventos de otros servicios.
@@ -230,7 +230,7 @@ Su significado funcional es:
 | `PasswordResetRequested` | Cuando un usuario solicita recuperar su contraseña.       | `Notifications`             | Envía un correo con un enlace de recuperación.                                                                                                    |
 | `MfaEnabled`             | Cuando el usuario activa MFA mediante TOTP.               | `Notifications`             | Envía la notificación o verificación definida para ese flujo.                                                                                     |
 
-Los dos últimos eventos son contexto para futuras features y no deben implementarse en esta etapa de registro.
+Estado: `UserRegistered` y `PasswordResetRequested` están implementados (el segundo en la feature de recuperación de contraseña). `MfaEnabled` sigue siendo contexto para una futura feature y no debe implementarse sin contrato acordado.
 
 ### 5.2 Bus, reglas y colas
 
@@ -307,33 +307,40 @@ Los valores son ilustrativos y no deben copiarse como datos reales. Genera los i
 
 **Importante:** el ejemplo del envelope de `PutEvents` utiliza las claves `Source`, `DetailType`, `EventBusName` y `Detail`, mientras que los eventos entregados por EventBridge suelen representarse con nombres de campos distintos en el sobre recibido. Respeta el formato requerido por la API al publicar y el formato que corresponda al contrato de los consumidores al procesar. No mezcles ambos formatos.
 
-### 5.4 Contrato provisional de `PasswordResetRequested`
+### 5.4 Contrato de `PasswordResetRequested` (v1.1, implementado)
 
-Este evento es solo contexto para una futura feature. Su estructura todavía puede cambiar.
+Implementado en la feature de recuperación de contraseña. El productor publica con el envelope `PutEvents` (`Source`, `DetailType`, `EventBusName`, `Detail` serializado), igual que `UserRegistered`:
 
 ```json
 {
-  "source": "kenko.auth",
-  "detail-type": "PasswordResetRequested",
-  "detail": {
-    "metadata": {
-      "eventId": "0192b3d1-1a2b-7c3d-8e4f-5a6b7c8d9e0f",
-      "eventVersion": "1",
-      "occurredAt": "2026-10-06T16:10:00Z",
-      "correlationId": "0192b3d1-1a2b-7c3d-8e4f-5a6b7c8d9e10"
-    },
-    "data": {
-      "userId": "0192b3c4-7d8e-7f10-a2b3-4c5d6e7f8000",
-      "email": "maria.gomez@example.com",
-      "firstName": "Maria Fernanda",
-      "resetToken": "<token-de-ejemplo>",
-      "expiresAt": "2026-10-06T16:30:00Z"
-    }
+  "Source": "kenko.auth",
+  "DetailType": "PasswordResetRequested",
+  "EventBusName": "kenko-dev-bus",
+  "Detail": "{\"metadata\":{\"eventId\":\"0192b3d1-1a2b-7c3d-8e4f-5a6b7c8d9e0f\",\"eventVersion\":\"1\",\"occurredAt\":\"2026-10-06T16:10:00Z\",\"correlationId\":\"0192b3d1-1a2b-7c3d-8e4f-5a6b7c8d9e10\"},\"data\":{\"userId\":\"0192b3c4-7d8e-7f10-a2b3-4c5d6e7f8000\",\"email\":\"maria.gomez@example.com\",\"firstName\":\"Maria Fernanda\",\"resetUrl\":\"http://localhost:8080/reset#token=<token-de-ejemplo>\",\"expiresAt\":\"2026-10-06T16:30:00Z\"}}"
+}
+```
+
+El contenido de `Detail` es:
+
+```json
+{
+  "metadata": {
+    "eventId": "0192b3d1-1a2b-7c3d-8e4f-5a6b7c8d9e0f",
+    "eventVersion": "1",
+    "occurredAt": "2026-10-06T16:10:00Z",
+    "correlationId": "0192b3d1-1a2b-7c3d-8e4f-5a6b7c8d9e10"
+  },
+  "data": {
+    "userId": "0192b3c4-7d8e-7f10-a2b3-4c5d6e7f8000",
+    "email": "maria.gomez@example.com",
+    "firstName": "Maria Fernanda",
+    "resetUrl": "http://localhost:8080/reset#token=<token-de-ejemplo>",
+    "expiresAt": "2026-10-06T16:30:00Z"
   }
 }
 ```
 
-No implementar ni cerrar este contrato ahora. Antes de usarlo en una feature futura, revisar el diseño de seguridad del token y acordar si debe publicarse el token en el evento o si conviene utilizar una referencia segura. Nunca escribir tokens reales en logs.
+Decisiones vigentes (v1.1): Auth construye `data.resetUrl` con `PORTAL_BASE_URL` (`http://localhost:8080` en local) y `data` ya no trae `resetToken` suelto; el token solo viaja dentro del fragmento `#token=` con mitigaciones (TTL 30 min, solo hash en DB, redacción del payload de la outbox al pasar a `sent`/`dead`); tratar todo el payload como secreto. Nunca escribir tokens ni URLs con token en logs.
 
 ### 5.5 Contrato de `MfaEnabled`
 
