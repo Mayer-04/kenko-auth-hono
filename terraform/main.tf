@@ -79,6 +79,10 @@ resource "aws_db_instance" "auth" {
   delete_automated_backups   = true
   deletion_protection        = var.deletion_protection
 
+  # Dev: permite `terraform destroy` sin snapshot final. Prod: false +
+  # final_snapshot_identifier.
+  skip_final_snapshot = true
+
   # Supervision minima para dev y presupuesto: logs a CloudWatch, sin
   # Performance Insights ni monitoreo mejorado (tienen costo).
   enabled_cloudwatch_logs_exports = ["postgresql", "upgrade"]
