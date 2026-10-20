@@ -1,8 +1,7 @@
-import type { UserRegisteredDetail } from '../../features/register/register.types.js';
-import { AUTH_SOURCE, USER_REGISTERED_TYPE } from './event.constants.js';
+import { AUTH_SOURCE } from './event.constants.js';
 import { NORMALIZE_MAX_DEPTH } from './relay.constants.js';
 
-export { AUTH_SOURCE, USER_REGISTERED_TYPE } from './event.constants.js';
+export { AUTH_SOURCE } from './event.constants.js';
 
 /**
  * Formato de publicacion (AGENTS.md 5.3).
@@ -10,6 +9,11 @@ export { AUTH_SOURCE, USER_REGISTERED_TYPE } from './event.constants.js';
  * Al publicar se usa el envelope de `PutEvents` (`Source`, `DetailType`,
  * `EventBusName`, `Detail` serializado). No mezclar con el sobre que
  * EventBridge entrega a consumidores (`source`, `detail-type`, `detail`).
+ *
+ * `DetailType` se toma del `eventType` de la fila de la outbox, de modo que
+ * el relay publica cada evento con su propio tipo (`UserRegistered`,
+ * `PasswordResetRequested`, ...). El relay es agnostico al payload: solo
+ * exige el envelope `{metadata, data}` del contrato.
  */
 export type PutEventsEntry = {
   Source: string;
@@ -18,13 +22,25 @@ export type PutEventsEntry = {
   Detail: string;
 };
 
+/** Envelope minimo que todo `Detail` de contrato debe tener. */
+export type EventDetail = {
+  metadata: {
+    eventId: string;
+    eventVersion: string;
+    occurredAt: string;
+    correlationId: string;
+  };
+  data: unknown;
+};
+
 export const toPutEventsEntry = (
-  detail: UserRegisteredDetail,
+  detail: EventDetail,
+  detailType: string,
   eventBusName: string,
 ): PutEventsEntry => {
   return {
     Source: AUTH_SOURCE,
-    DetailType: USER_REGISTERED_TYPE,
+    DetailType: detailType,
     EventBusName: eventBusName,
     Detail: JSON.stringify(detail),
   };
@@ -42,7 +58,7 @@ export const toPutEventsEntry = (
  * string, no un objeto) y EventBridge lo rechaza con `MalformedDetail`.
  * Si no se obtiene un objeto con `metadata` y `data`, lanza.
  */
-export const normalizeDetail = (payload: unknown): UserRegisteredDetail => {
+export const normalizeDetail = (payload: unknown): EventDetail => {
   let value = payload;
   for (let depth = 0; depth < NORMALIZE_MAX_DEPTH; depth += 1) {
     if (typeof value !== 'string') break;
@@ -65,5 +81,5 @@ export const normalizeDetail = (payload: unknown): UserRegisteredDetail => {
   ) {
     throw new Error('Outbox payload misses metadata/data.');
   }
-  return value as UserRegisteredDetail;
+  return value as EventDetail;
 };

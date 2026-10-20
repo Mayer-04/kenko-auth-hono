@@ -1,6 +1,9 @@
 import { sql } from 'drizzle-orm';
 
-import { OutboxStatus } from '../../events/event.constants.js';
+import {
+  OutboxStatus,
+  REDACTED_OUTBOX_PAYLOAD,
+} from '../../events/event.constants.js';
 import type { DbClient } from '../client.js';
 
 /**
@@ -9,6 +12,15 @@ import type { DbClient } from '../client.js';
  * `claimPending` reserva un lote con `FOR UPDATE SKIP LOCKED` para que dos
  * relays no publiquen lo mismo. El relay marca `sent` o reprograma con
  * backoff exponencial.
+ *
+ * Retencion del payload (minimizacion de exposicion): en los estados
+ * terminales `sent` y `dead` el payload se REDACTA. Solo algunos eventos
+ * (`PasswordResetRequested`) llevan secretos en el payload (el token en
+ * claro, decision D1): una vez publicado o dado por muerto, la fila conserva
+ * `event_id` y `correlation_id` para trazabilidad pero deja de retener el
+ * token. Los reintentos NO se ven afectados: `reschedule` no toca el payload,
+ * que permanece completo hasta llegar a un estado terminal. Compromiso
+ * documentado: se pierde el forensic payload de filas terminales.
  */
 
 export type PendingOutbox = {
@@ -54,7 +66,9 @@ export const makeOutboxRepository = (client: DbClient) => {
     async markSent(id: string): Promise<void> {
       await db.execute(sql`
         UPDATE outbox
-        SET status = ${OutboxStatus.SENT}, published_at = NOW()
+        SET status = ${OutboxStatus.SENT},
+            payload = ${REDACTED_OUTBOX_PAYLOAD}::jsonb,
+            published_at = NOW()
         WHERE id = ${id}
       `);
     },
@@ -76,7 +90,8 @@ export const makeOutboxRepository = (client: DbClient) => {
     async markDead(id: string): Promise<void> {
       await db.execute(sql`
         UPDATE outbox
-        SET status = ${OutboxStatus.DEAD}
+        SET status = ${OutboxStatus.DEAD},
+            payload = ${REDACTED_OUTBOX_PAYLOAD}::jsonb
         WHERE id = ${id}
       `);
     },

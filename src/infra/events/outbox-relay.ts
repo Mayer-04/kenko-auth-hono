@@ -74,8 +74,9 @@ export const runRelayOnce = async (deps: RelayDeps): Promise<RelayOutcome> => {
       });
     }
 
-    // El payload normalizado ya es el `Detail` del contrato.
-    const entry = toPutEventsEntry(detail, deps.eventBusName);
+    // El payload normalizado ya es el `Detail` del contrato; el `DetailType`
+    // sale del `eventType` de la fila (agnostico al tipo de evento).
+    const entry = toPutEventsEntry(detail, row.eventType, deps.eventBusName);
     try {
       const res = await deps.eventBridge.send(
         new PutEventsCommand({ Entries: [entry] }),

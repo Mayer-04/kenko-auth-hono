@@ -12,8 +12,14 @@ export const AUTH_SOURCE = 'kenko.auth';
 /** `DetailType` del registro. */
 export const USER_REGISTERED_TYPE = 'UserRegistered';
 
+/** `DetailType` de la solicitud de restablecimiento de contrasena. */
+export const PASSWORD_RESET_REQUESTED_TYPE = 'PasswordResetRequested';
+
 /** Agregado dueño de la outbox. */
 export const USER_AGGREGATE_TYPE = 'user';
+
+/** Payload con el que la outbox reemplaza el original en estados terminales. */
+export const REDACTED_OUTBOX_PAYLOAD = '{"redacted":true}';
 
 /** Bus de desarrollo (mismo valor que el default de `EnvSchema`). */
 export const DEFAULT_EVENT_BUS_NAME = 'kenko-dev-bus';

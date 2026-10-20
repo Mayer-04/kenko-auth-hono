@@ -77,13 +77,25 @@ const stubOutbox = (rows: PendingOutbox[]) => {
 const stubBridge = (behavior: {
   entries?: Array<{ ErrorCode?: string }>;
   sentDetails?: string[];
+  sentEntries?: Array<{ DetailType?: string; Source?: string }>;
 }) => {
   return {
     async send(cmd: unknown) {
-      const input = (cmd as { input: { Entries: Array<{ Detail?: string }> } })
-        .input;
-      const detail = input.Entries[0]?.Detail;
+      const input = (
+        cmd as {
+          input: {
+            Entries: Array<{
+              Detail?: string;
+              DetailType?: string;
+              Source?: string;
+            }>;
+          };
+        }
+      ).input;
+      const entry = input.Entries[0];
+      const detail = entry?.Detail;
       if (detail !== undefined) behavior.sentDetails?.push(detail);
+      if (entry !== undefined) behavior.sentEntries?.push(entry);
       return { Entries: behavior.entries ?? [{}] };
     },
   } as unknown as EventBridgeClient;
@@ -123,6 +135,39 @@ describe('runRelayOnce', () => {
         (c) => c[0] === 'outbox.payload_normalized',
       ),
     ).toBe(true);
+  });
+
+  it('publica PasswordResetRequested con su DetailType (fila, no hardcodeado)', async () => {
+    const resetDetail = {
+      metadata: {
+        eventId: 'e1',
+        eventVersion: '1',
+        occurredAt: '2026-10-13T20:15:30.000Z',
+        correlationId: 'c1',
+      },
+      data: {
+        userId: 'u1',
+        email: 'a@example.com',
+        firstName: 'A',
+        resetUrl: 'http://localhost:8080/reset#token=tok-en-claro',
+        expiresAt: '2026-10-13T20:45:30.000Z',
+      },
+    };
+    const outbox = stubOutbox([
+      { ...row(resetDetail), eventType: 'PasswordResetRequested' },
+    ]);
+    const sentEntries: Array<{ DetailType?: string; Source?: string }> = [];
+
+    const outcome = await runRelayOnce({
+      outbox,
+      eventBridge: stubBridge({ sentEntries }),
+      eventBusName: 'kenko-dev-bus',
+      logger: stubLogger(),
+    });
+
+    expect(outcome).toEqual({ published: 1, failed: 0, dead: 0 });
+    expect(sentEntries[0]?.DetailType).toBe('PasswordResetRequested');
+    expect(sentEntries[0]?.Source).toBe('kenko.auth');
   });
 
   it('marca dead el payload irreparable sin llamar a EventBridge', async () => {

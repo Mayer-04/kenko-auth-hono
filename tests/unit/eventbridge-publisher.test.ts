@@ -32,7 +32,7 @@ const DETAIL: UserRegisteredDetail = {
 
 describe('toPutEventsEntry', () => {
   it('usa el envelope PutEvents con Detail serializado', () => {
-    const entry = toPutEventsEntry(DETAIL, 'kenko-dev-bus');
+    const entry = toPutEventsEntry(DETAIL, 'UserRegistered', 'kenko-dev-bus');
     expect(entry.Source).toBe('kenko.auth');
     expect(entry.DetailType).toBe('UserRegistered');
     expect(entry.EventBusName).toBe('kenko-dev-bus');
@@ -41,8 +41,33 @@ describe('toPutEventsEntry', () => {
     expect(parsed.data.userId).toBe(DETAIL.data.userId);
   });
 
+  it('publica PasswordResetRequested con su propio DetailType', () => {
+    const resetDetail = {
+      metadata: {
+        eventId: '0192b3d1-1a2b-7c3d-8e4f-5a6b7c8d9e0f',
+        eventVersion: '1',
+        occurredAt: '2026-10-13T20:15:30.000Z',
+        correlationId: '0192b3d1-1a2b-7c3d-8e4f-5a6b7c8d9e10',
+      },
+      data: {
+        userId: 'u1',
+        email: 'a@example.com',
+        firstName: 'A',
+        resetUrl: 'http://localhost:8080/reset#token=tok',
+        expiresAt: '2026-10-13T20:45:30.000Z',
+      },
+    };
+    const entry = toPutEventsEntry(
+      resetDetail,
+      'PasswordResetRequested',
+      'kenko-dev-bus',
+    );
+    expect(entry.DetailType).toBe('PasswordResetRequested');
+    expect(entry.Source).toBe('kenko.auth');
+  });
+
   it('no incluye password ni secretos', () => {
-    const entry = toPutEventsEntry(DETAIL, 'kenko-dev-bus');
+    const entry = toPutEventsEntry(DETAIL, 'UserRegistered', 'kenko-dev-bus');
     expect(entry.Detail).not.toContain('password');
     expect(entry.Detail).not.toContain('passwordHash');
   });
@@ -59,7 +84,11 @@ describe('normalizeDetail', () => {
     const normalized = normalizeDetail(twice);
     expect(normalized).toEqual(DETAIL);
     // El Detail resultante debe parsear a objeto, no a string.
-    const entry = toPutEventsEntry(normalized, 'kenko-dev-bus');
+    const entry = toPutEventsEntry(
+      normalized,
+      'UserRegistered',
+      'kenko-dev-bus',
+    );
     expect(typeof JSON.parse(entry.Detail)).toBe('object');
   });
 
