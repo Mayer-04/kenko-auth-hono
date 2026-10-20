@@ -3,14 +3,12 @@ import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { buildApp } from '../../src/app.js';
+import type { buildApp } from '../../src/app.js';
 import { loadEnv, resolveDatabase } from '../../src/config/env.js';
-import { makeRegisterService } from '../../src/features/register/register.service.js';
 import { createDb } from '../../src/infra/db/client.js';
-import { makeUserRepository } from '../../src/infra/db/repositories/user.repository.js';
 import { outbox, users } from '../../src/infra/db/schema/index.js';
 import { makeArgon2Hasher } from '../../src/infra/password/argon2-hasher.js';
-import { newId } from '../../src/shared/ids.js';
+import { buildTestApp } from './helpers.js';
 
 /**
  * Integracion `POST /auth/register` contra PostgreSQL local.
@@ -34,15 +32,7 @@ describe('POST /auth/register', () => {
     const client = createDb(database.url);
     sql = client.sql;
     close = client.close;
-    const repo = makeUserRepository(client);
-    const service = makeRegisterService({
-      users: repo,
-      hasher,
-      newUserId: () => newId(),
-      newEventId: () => newId(),
-      nowIso: () => new Date().toISOString(),
-    });
-    app = buildApp(service);
+    app = buildTestApp(client.sql).app;
   });
 
   afterAll(async () => {

@@ -56,6 +56,7 @@ export const EnvSchema = z.object({
   AWS_REGION: optionalWhenPresent(z.string().min(1)),
   POSTGRES_URL: z.url(),
   AWS_RDS_POSTGRES_URL: optionalWhenPresent(z.url()),
+  PORTAL_BASE_URL: z.url().default('http://localhost:8080'),
 });
 
 export type Env = z.infer<typeof EnvSchema>;

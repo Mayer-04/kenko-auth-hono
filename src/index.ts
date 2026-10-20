@@ -7,7 +7,14 @@ import { LogEvent } from './shared/log-events.js';
  * no responde (sin fallback silencioso a otra base).
  */
 const container = buildContainer();
-const app = buildApp(container.registerService);
+const app = buildApp({
+  registerService: container.registerService,
+  forgotService: container.forgotService,
+  resetService: container.resetService,
+  rateLimiter: container.rateLimiter,
+  routeLogger: container.logger,
+  routeLimits: container.routeLimits,
+});
 
 const port = container.env.PORT;
 
