@@ -1,5 +1,5 @@
-import { SQL } from 'bun';
-import { drizzle } from 'drizzle-orm/bun-sql';
+import { SQL } from "bun";
+import { drizzle } from "drizzle-orm/bun-sql";
 
 /**
  * Cliente Drizzle sobre el SQL nativo de Bun.
@@ -12,23 +12,23 @@ import { drizzle } from 'drizzle-orm/bun-sql';
  */
 
 const sanitizeUrl = (url: string): string => {
-  try {
-    const parsed = new URL(url);
-    parsed.searchParams.delete('connect_timeout');
-    return parsed.toString();
-  } catch {
-    return url;
-  }
+	try {
+		const parsed = new URL(url);
+		parsed.searchParams.delete("connect_timeout");
+		return parsed.toString();
+	} catch {
+		return url;
+	}
 };
 
 export type DbClient = {
-  db: ReturnType<typeof drizzle>;
-  sql: SQL;
-  close: () => void;
+	db: ReturnType<typeof drizzle>;
+	sql: SQL;
+	close: () => void;
 };
 
 export const createDb = (url: string): DbClient => {
-  const sql = new SQL(sanitizeUrl(url));
-  const db = drizzle({ client: sql });
-  return { db, sql, close: () => void sql.close() };
+	const sql = new SQL(sanitizeUrl(url));
+	const db = drizzle({ client: sql });
+	return { db, sql, close: () => void sql.close() };
 };

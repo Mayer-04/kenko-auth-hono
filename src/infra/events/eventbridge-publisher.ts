@@ -1,7 +1,7 @@
-import { AUTH_SOURCE } from './event.constants.js';
-import { NORMALIZE_MAX_DEPTH } from './relay.constants.js';
+import { AUTH_SOURCE } from "./event.constants.js";
+import { NORMALIZE_MAX_DEPTH } from "./relay.constants.js";
 
-export { AUTH_SOURCE } from './event.constants.js';
+export { AUTH_SOURCE } from "./event.constants.js";
 
 /**
  * Formato de publicacion (AGENTS.md 5.3).
@@ -16,34 +16,34 @@ export { AUTH_SOURCE } from './event.constants.js';
  * exige el envelope `{metadata, data}` del contrato.
  */
 export type PutEventsEntry = {
-  Source: string;
-  DetailType: string;
-  EventBusName: string;
-  Detail: string;
+	Source: string;
+	DetailType: string;
+	EventBusName: string;
+	Detail: string;
 };
 
 /** Envelope minimo que todo `Detail` de contrato debe tener. */
 export type EventDetail = {
-  metadata: {
-    eventId: string;
-    eventVersion: string;
-    occurredAt: string;
-    correlationId: string;
-  };
-  data: unknown;
+	metadata: {
+		eventId: string;
+		eventVersion: string;
+		occurredAt: string;
+		correlationId: string;
+	};
+	data: unknown;
 };
 
 export const toPutEventsEntry = (
-  detail: EventDetail,
-  detailType: string,
-  eventBusName: string,
+	detail: EventDetail,
+	detailType: string,
+	eventBusName: string,
 ): PutEventsEntry => {
-  return {
-    Source: AUTH_SOURCE,
-    DetailType: detailType,
-    EventBusName: eventBusName,
-    Detail: JSON.stringify(detail),
-  };
+	return {
+		Source: AUTH_SOURCE,
+		DetailType: detailType,
+		EventBusName: eventBusName,
+		Detail: JSON.stringify(detail),
+	};
 };
 
 /**
@@ -59,27 +59,27 @@ export const toPutEventsEntry = (
  * Si no se obtiene un objeto con `metadata` y `data`, lanza.
  */
 export const normalizeDetail = (payload: unknown): EventDetail => {
-  let value = payload;
-  for (let depth = 0; depth < NORMALIZE_MAX_DEPTH; depth += 1) {
-    if (typeof value !== 'string') break;
-    try {
-      value = JSON.parse(value) as unknown;
-    } catch (err) {
-      throw new Error('Outbox payload is not valid JSON.', { cause: err });
-    }
-  }
+	let value = payload;
+	for (let depth = 0; depth < NORMALIZE_MAX_DEPTH; depth += 1) {
+		if (typeof value !== "string") break;
+		try {
+			value = JSON.parse(value) as unknown;
+		} catch (err) {
+			throw new Error("Outbox payload is not valid JSON.", { cause: err });
+		}
+	}
 
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-    throw new Error('Outbox payload is not an object.');
-  }
-  const detail = value as Record<string, unknown>;
-  if (
-    typeof detail.metadata !== 'object' ||
-    detail.metadata === null ||
-    typeof detail.data !== 'object' ||
-    detail.data === null
-  ) {
-    throw new Error('Outbox payload misses metadata/data.');
-  }
-  return value as EventDetail;
+	if (typeof value !== "object" || value === null || Array.isArray(value)) {
+		throw new Error("Outbox payload is not an object.");
+	}
+	const detail = value as Record<string, unknown>;
+	if (
+		typeof detail.metadata !== "object" ||
+		detail.metadata === null ||
+		typeof detail.data !== "object" ||
+		detail.data === null
+	) {
+		throw new Error("Outbox payload misses metadata/data.");
+	}
+	return value as EventDetail;
 };

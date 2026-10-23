@@ -1,12 +1,12 @@
 import {
-  boolean,
-  date,
-  pgTable,
-  text,
-  timestamp,
-  uniqueIndex,
-  uuid,
-} from 'drizzle-orm/pg-core';
+	boolean,
+	date,
+	pgTable,
+	text,
+	timestamp,
+	uniqueIndex,
+	uuid,
+} from "drizzle-orm/pg-core";
 
 /**
  * Tabla `users` del microservicio Authentication.
@@ -21,32 +21,32 @@ import {
  *   y `CC/TI/CE/PA` sin migracion de tipo.
  */
 export const users = pgTable(
-  'users',
-  {
-    id: uuid('id').primaryKey(),
-    documentType: text('document_type').notNull(),
-    documentNumber: text('document_number').notNull(),
-    firstName: text('first_name').notNull(),
-    lastName: text('last_name').notNull(),
-    birthDate: date('birth_date').notNull(),
-    gender: text('gender').notNull(),
-    email: text('email').notNull(),
-    emailVerified: boolean('email_verified').notNull().default(false),
-    phone: text('phone').notNull(),
-    addressLine: text('address_line').notNull(),
-    city: text('city').notNull(),
-    passwordHash: text('password_hash').notNull(),
-    createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' })
-      .notNull()
-      .defaultNow(),
-    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' })
-      .notNull()
-      .defaultNow(),
-  },
-  (t) => [
-    uniqueIndex('users_email_unique').on(t.email),
-    uniqueIndex('users_document_unique').on(t.documentType, t.documentNumber),
-  ],
+	"users",
+	{
+		id: uuid("id").primaryKey(),
+		documentType: text("document_type").notNull(),
+		documentNumber: text("document_number").notNull(),
+		firstName: text("first_name").notNull(),
+		lastName: text("last_name").notNull(),
+		birthDate: date("birth_date").notNull(),
+		gender: text("gender").notNull(),
+		email: text("email").notNull(),
+		emailVerified: boolean("email_verified").notNull().default(false),
+		phone: text("phone").notNull(),
+		addressLine: text("address_line").notNull(),
+		city: text("city").notNull(),
+		passwordHash: text("password_hash").notNull(),
+		createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
+			.notNull()
+			.defaultNow(),
+		updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" })
+			.notNull()
+			.defaultNow(),
+	},
+	(t) => [
+		uniqueIndex("users_email_unique").on(t.email),
+		uniqueIndex("users_document_unique").on(t.documentType, t.documentNumber),
+	],
 );
 
 export type UserRow = typeof users.$inferSelect;

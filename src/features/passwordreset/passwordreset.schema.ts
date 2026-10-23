@@ -1,10 +1,10 @@
-import { z } from 'zod';
-import { normalizeDocumentNumber } from '../register/register.normalize.js';
+import { z } from "zod";
+import { normalizeDocumentNumber } from "../register/register.normalize.js";
 import {
-  documentNumberRegex,
-  PasswordFieldSchema,
-} from '../register/register.schema.js';
-import { DOCUMENT_TYPES } from '../user/user.types.js';
+	documentNumberRegex,
+	PasswordFieldSchema,
+} from "../register/register.schema.js";
+import { DOCUMENT_TYPES } from "../user/user.types.js";
 
 /**
  * Validacion de entrada para los endpoints de recuperacion.
@@ -22,26 +22,26 @@ import { DOCUMENT_TYPES } from '../user/user.types.js';
  */
 
 export const ForgotPasswordSchema = z.object({
-  documentType: z.preprocess(
-    (v) => (typeof v === 'string' ? v.trim().toUpperCase() : v),
-    z.enum(DOCUMENT_TYPES),
-  ),
-  documentNumber: z.preprocess(
-    (v) => (typeof v === 'string' ? normalizeDocumentNumber(v) : v),
-    z.string().regex(documentNumberRegex(), 'Numero de documento invalido.'),
-  ),
+	documentType: z.preprocess(
+		(v) => (typeof v === "string" ? v.trim().toUpperCase() : v),
+		z.enum(DOCUMENT_TYPES),
+	),
+	documentNumber: z.preprocess(
+		(v) => (typeof v === "string" ? normalizeDocumentNumber(v) : v),
+		z.string().regex(documentNumberRegex(), "Numero de documento invalido."),
+	),
 });
 
 export const ResetPasswordSchema = z
-  .object({
-    token: z.string().min(1, 'Token invalido.'),
-    password: PasswordFieldSchema,
-    confirmPassword: z.string(),
-  })
-  .refine((v) => v.password === v.confirmPassword, {
-    path: ['confirmPassword'],
-    message: 'Las contrasenas no coinciden.',
-  });
+	.object({
+		token: z.string().min(1, "Token invalido."),
+		password: PasswordFieldSchema,
+		confirmPassword: z.string(),
+	})
+	.refine((v) => v.password === v.confirmPassword, {
+		path: ["confirmPassword"],
+		message: "Las contrasenas no coinciden.",
+	});
 
 export type ForgotPasswordRequest = z.infer<typeof ForgotPasswordSchema>;
 export type ResetPasswordRequest = z.infer<typeof ResetPasswordSchema>;

@@ -7,18 +7,17 @@
  * produciria un mensaje pobre frente al log estructurado de `loadEnv()`.
  */
 
-import { defineConfig } from 'drizzle-kit';
-
-import { loadEnv, resolveDatabase } from './src/config/env';
+import { defineConfig } from "drizzle-kit";
+import { loadEnv, resolveDatabase } from "./src/config/env";
 
 const env = loadEnv();
 const database = resolveDatabase(env);
 
 export default defineConfig({
-  schema: './src/infra/db/schema/index.ts',
-  out: './src/infra/db/migrations',
-  dialect: 'postgresql',
-  dbCredentials: {
-    url: database.url,
-  },
+	schema: "./src/infra/db/schema/index.ts",
+	out: "./src/infra/db/migrations",
+	dialect: "postgresql",
+	dbCredentials: {
+		url: database.url,
+	},
 });

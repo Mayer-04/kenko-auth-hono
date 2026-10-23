@@ -1,5 +1,5 @@
-import type { UserRepository } from '../user/user.port.js';
-import type { RegisterInput, RegisterResult } from './register.types.js';
+import type { UserRepository } from "../user/user.port.js";
+import type { RegisterInput, RegisterResult } from "./register.types.js";
 
 /**
  * Puertos que el caso de uso necesita. `features/` declara interfaces;
@@ -8,19 +8,19 @@ import type { RegisterInput, RegisterResult } from './register.types.js';
  */
 
 export type PasswordHasher = {
-  hash(password: string): Promise<string>;
-  verify(hash: string, password: string): Promise<boolean>;
+	hash(password: string): Promise<string>;
+	verify(hash: string, password: string): Promise<boolean>;
 };
 
 export type RegisterDeps = {
-  users: UserRepository;
-  hasher: PasswordHasher;
-  newUserId: () => string;
-  newEventId: () => string;
-  nowIso: () => string;
+	users: UserRepository;
+	hasher: PasswordHasher;
+	newUserId: () => string;
+	newEventId: () => string;
+	nowIso: () => string;
 };
 
 export type RegisterService = (
-  input: RegisterInput,
-  correlationId: string,
+	input: RegisterInput,
+	correlationId: string,
 ) => Promise<RegisterResult>;

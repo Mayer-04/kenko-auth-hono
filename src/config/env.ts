@@ -14,16 +14,16 @@
  *   superficie que se prueba.
  */
 
-import { z } from 'zod';
+import { z } from "zod";
 
-import { LogEvent } from '../shared/log-events.js';
-import { PORT_MAX, PORT_MIN } from '../shared/request-limits.js';
-import { SERVICE_NAME } from '../shared/service.js';
+import { LogEvent } from "../shared/log-events.js";
+import { PORT_MAX, PORT_MIN } from "../shared/request-limits.js";
+import { SERVICE_NAME } from "../shared/service.js";
 
 /** Bus de eventos confirmado para el entorno de desarrollo. Ver AGENTS.md 5.2. */
-const DEFAULT_EVENT_BUS_NAME = 'kenko-dev-bus';
+const DEFAULT_EVENT_BUS_NAME = "kenko-dev-bus";
 
-const ENVIRONMENTS = ['development', 'test', 'production'] as const;
+const ENVIRONMENTS = ["development", "test", "production"] as const;
 
 export type Environment = (typeof ENVIRONMENTS)[number];
 
@@ -33,11 +33,11 @@ export type Environment = (typeof ENVIRONMENTS)[number];
  * `undefined`. Sin esta conversion, `AWS_REGION=` reprobaria la validacion.
  */
 const optionalWhenPresent = <TSchema extends z.ZodType>(schema: TSchema) => {
-  return z.preprocess(
-    (value) =>
-      typeof value === 'string' && value.trim() === '' ? undefined : value,
-    schema.optional(),
-  );
+	return z.preprocess(
+		(value) =>
+			typeof value === "string" && value.trim() === "" ? undefined : value,
+		schema.optional(),
+	);
 };
 
 /**
@@ -50,29 +50,29 @@ const optionalWhenPresent = <TSchema extends z.ZodType>(schema: TSchema) => {
  * se conecta con `POSTGRES_URL`.
  */
 export const EnvSchema = z.object({
-  PORT: z.coerce.number().int().min(PORT_MIN).max(PORT_MAX),
-  ENVIRONMENT: z.enum(ENVIRONMENTS),
-  EVENT_BUS_NAME: z.string().min(1).default(DEFAULT_EVENT_BUS_NAME),
-  AWS_REGION: optionalWhenPresent(z.string().min(1)),
-  POSTGRES_URL: z.url(),
-  AWS_RDS_POSTGRES_URL: optionalWhenPresent(z.url()),
-  PORTAL_BASE_URL: z.url().default('http://localhost:8080'),
+	PORT: z.coerce.number().int().min(PORT_MIN).max(PORT_MAX),
+	ENVIRONMENT: z.enum(ENVIRONMENTS),
+	EVENT_BUS_NAME: z.string().min(1).default(DEFAULT_EVENT_BUS_NAME),
+	AWS_REGION: optionalWhenPresent(z.string().min(1)),
+	POSTGRES_URL: z.url(),
+	AWS_RDS_POSTGRES_URL: optionalWhenPresent(z.url()),
+	PORTAL_BASE_URL: z.url().default("http://localhost:8080"),
 });
 
 export type Env = z.infer<typeof EnvSchema>;
 
 export type ConfigurationIssue = {
-  /** Ruta de la variable dentro del esquema, por ejemplo `AWS_RDS_POSTGRES_URL`. */
-  variable: string;
-  /** Codigo de fallo de Zod, por ejemplo `invalid_type` o `invalid_value`. */
-  code: string;
-  /** Mensaje del validador. Nunca contiene el valor rechazado. */
-  message: string;
+	/** Ruta de la variable dentro del esquema, por ejemplo `AWS_RDS_POSTGRES_URL`. */
+	variable: string;
+	/** Codigo de fallo de Zod, por ejemplo `invalid_type` o `invalid_value`. */
+	code: string;
+	/** Mensaje del validador. Nunca contiene el valor rechazado. */
+	message: string;
 };
 
 export type EnvParseResult =
-  | { ok: true; data: Env }
-  | { ok: false; issues: ConfigurationIssue[] };
+	| { ok: true; data: Env }
+	| { ok: false; issues: ConfigurationIssue[] };
 
 /**
  * Proyecta los issues de Zod a una lista de campos conocidos. No se hace spread
@@ -80,23 +80,23 @@ export type EnvParseResult =
  * filtraria credenciales a los logs.
  */
 const toConfigurationIssues = (error: z.ZodError): ConfigurationIssue[] => {
-  return error.issues.map((issue) => ({
-    variable:
-      issue.path.map((segment) => String(segment)).join('.') || '(raiz)',
-    code: issue.code,
-    message: issue.message,
-  }));
+	return error.issues.map((issue) => ({
+		variable:
+			issue.path.map((segment) => String(segment)).join(".") || "(raiz)",
+		code: issue.code,
+		message: issue.message,
+	}));
 };
 
 /** Valida un entorno sin efectos secundarios. */
 export const parseEnv = (source: NodeJS.ProcessEnv): EnvParseResult => {
-  const result = EnvSchema.safeParse(source);
+	const result = EnvSchema.safeParse(source);
 
-  if (result.success) {
-    return { ok: true, data: result.data };
-  }
+	if (result.success) {
+		return { ok: true, data: result.data };
+	}
 
-  return { ok: false, issues: toConfigurationIssues(result.error) };
+	return { ok: false, issues: toConfigurationIssues(result.error) };
 };
 
 /**
@@ -108,15 +108,15 @@ export const parseEnv = (source: NodeJS.ProcessEnv): EnvParseResult => {
  * el unico punto que escribe en stderr durante el bootstrap.
  */
 const writeFatalLog = (details: Record<string, unknown>): void => {
-  const record = {
-    level: 'fatal',
-    service: SERVICE_NAME,
-    event: LogEvent.CONFIGURATION_INVALID,
-    timestamp: new Date().toISOString(),
-    details,
-  };
+	const record = {
+		level: "fatal",
+		service: SERVICE_NAME,
+		event: LogEvent.CONFIGURATION_INVALID,
+		timestamp: new Date().toISOString(),
+		details,
+	};
 
-  process.stderr.write(`${JSON.stringify(record)}\n`);
+	process.stderr.write(`${JSON.stringify(record)}\n`);
 };
 
 let cachedEnv: Env | undefined;
@@ -128,32 +128,32 @@ let cachedEnv: Env | undefined;
  * vuelve a leer `process.env`.
  */
 export const loadEnv = (source: NodeJS.ProcessEnv = process.env): Env => {
-  if (cachedEnv !== undefined) {
-    return cachedEnv;
-  }
+	if (cachedEnv !== undefined) {
+		return cachedEnv;
+	}
 
-  const result = parseEnv(source);
+	const result = parseEnv(source);
 
-  if (!result.ok) {
-    writeFatalLog({ issueCount: result.issues.length, issues: result.issues });
-    process.exit(1);
-  }
+	if (!result.ok) {
+		writeFatalLog({ issueCount: result.issues.length, issues: result.issues });
+		process.exit(1);
+	}
 
-  cachedEnv = result.data;
-  return cachedEnv;
+	cachedEnv = result.data;
+	return cachedEnv;
 };
 
-export type DatabaseTarget = 'rds' | 'local';
+export type DatabaseTarget = "rds" | "local";
 
 export type ResolvedDatabase = {
-  url: string;
-  target: DatabaseTarget;
-  /** Descripcion apta para logs: sin usuario, contrasena ni query string. */
-  safeDescription: {
-    host: string;
-    port: string;
-    database: string;
-  };
+	url: string;
+	target: DatabaseTarget;
+	/** Descripcion apta para logs: sin usuario, contrasena ni query string. */
+	safeDescription: {
+		host: string;
+		port: string;
+		database: string;
+	};
 };
 
 /**
@@ -161,18 +161,18 @@ export type ResolvedDatabase = {
  * en particular el usuario y la contrasena.
  */
 const describeDatabaseUrl = (
-  url: string,
-): ResolvedDatabase['safeDescription'] => {
-  try {
-    const parsed = new URL(url);
-    return {
-      host: parsed.hostname,
-      port: parsed.port !== '' ? parsed.port : '5432',
-      database: parsed.pathname.replace(/^\//, ''),
-    };
-  } catch {
-    return { host: '(no analizable)', port: '5432', database: '(desconocida)' };
-  }
+	url: string,
+): ResolvedDatabase["safeDescription"] => {
+	try {
+		const parsed = new URL(url);
+		return {
+			host: parsed.hostname,
+			port: parsed.port !== "" ? parsed.port : "5432",
+			database: parsed.pathname.replace(/^\//, ""),
+		};
+	} catch {
+		return { host: "(no analizable)", port: "5432", database: "(desconocida)" };
+	}
 };
 
 /**
@@ -184,9 +184,9 @@ const describeDatabaseUrl = (
  * porque escribir en la base equivocada es peor que no arrancar.
  */
 export const resolveDatabase = (env: Env): ResolvedDatabase => {
-  const rdsUrl = env.AWS_RDS_POSTGRES_URL;
-  const target: DatabaseTarget = rdsUrl === undefined ? 'local' : 'rds';
-  const url = rdsUrl ?? env.POSTGRES_URL;
+	const rdsUrl = env.AWS_RDS_POSTGRES_URL;
+	const target: DatabaseTarget = rdsUrl === undefined ? "local" : "rds";
+	const url = rdsUrl ?? env.POSTGRES_URL;
 
-  return { url, target, safeDescription: describeDatabaseUrl(url) };
+	return { url, target, safeDescription: describeDatabaseUrl(url) };
 };

@@ -1,4 +1,4 @@
-import type { DocumentType } from '../user/user.types.js';
+import type { DocumentType } from "../user/user.types.js";
 
 /**
  * Dominio del caso de uso `passwordreset` (solicitud y restablecimiento).
@@ -10,19 +10,19 @@ import type { DocumentType } from '../user/user.types.js';
 
 /** Entrada de `forgot` ya normalizada. */
 export type ForgotInput = {
-  documentType: DocumentType;
-  documentNumber: string;
+	documentType: DocumentType;
+	documentNumber: string;
 };
 
 /** Entrada de `reset`: el token llega en el BODY, nunca en la URL. */
 export type ResetInput = {
-  token: string;
-  password: string;
+	token: string;
+	password: string;
 };
 
 /** Resultado de ambos casos de uso. Solo IDs, sin PII ni token. */
 export type PasswordResetResult = {
-  correlationId: string;
+	correlationId: string;
 };
 
 /**
@@ -35,17 +35,17 @@ export type PasswordResetResult = {
  * su hash SHA-256. Tratar todo el payload como secreto.
  */
 export type PasswordResetRequestedDetail = {
-  metadata: {
-    eventId: string;
-    eventVersion: '1';
-    occurredAt: string;
-    correlationId: string;
-  };
-  data: {
-    userId: string;
-    email: string;
-    firstName: string;
-    resetUrl: string;
-    expiresAt: string;
-  };
+	metadata: {
+		eventId: string;
+		eventVersion: "1";
+		occurredAt: string;
+		correlationId: string;
+	};
+	data: {
+		userId: string;
+		email: string;
+		firstName: string;
+		resetUrl: string;
+		expiresAt: string;
+	};
 };

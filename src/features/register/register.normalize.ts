@@ -9,7 +9,7 @@
  */
 
 export const normalizeEmail = (value: string): string => {
-  return value.trim().toLowerCase();
+	return value.trim().toLowerCase();
 };
 
 /**
@@ -21,19 +21,19 @@ export const normalizeEmail = (value: string): string => {
  * confirmado: pais por defecto Colombia.
  */
 export const normalizePhoneToE164 = (value: string): string => {
-  const cleaned = value.replace(/[\s\-().]/g, '');
-  if (cleaned.startsWith('00')) return `+${cleaned.slice(2)}`;
-  if (cleaned.startsWith('+')) return cleaned;
-  if (/^3\d{9}$/.test(cleaned)) return `+57${cleaned}`;
-  if (/^57\d{10}$/.test(cleaned)) return `+${cleaned}`;
-  if (/^\d{8,15}$/.test(cleaned)) return `+${cleaned}`;
-  return cleaned;
+	const cleaned = value.replace(/[\s\-().]/g, "");
+	if (cleaned.startsWith("00")) return `+${cleaned.slice(2)}`;
+	if (cleaned.startsWith("+")) return cleaned;
+	if (/^3\d{9}$/.test(cleaned)) return `+57${cleaned}`;
+	if (/^57\d{10}$/.test(cleaned)) return `+${cleaned}`;
+	if (/^\d{8,15}$/.test(cleaned)) return `+${cleaned}`;
+	return cleaned;
 };
 
 /** Trim + sin separadores + mayusculas. */
 export const normalizeDocumentNumber = (value: string): string => {
-  return value
-    .trim()
-    .replace(/[\s.-]/g, '')
-    .toUpperCase();
+	return value
+		.trim()
+		.replace(/[\s.-]/g, "")
+		.toUpperCase();
 };

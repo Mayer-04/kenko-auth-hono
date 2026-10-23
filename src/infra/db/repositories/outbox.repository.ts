@@ -1,10 +1,10 @@
-import { sql } from 'drizzle-orm';
+import { sql } from "drizzle-orm";
 
 import {
-  OutboxStatus,
-  REDACTED_OUTBOX_PAYLOAD,
-} from '../../events/event.constants.js';
-import type { DbClient } from '../client.js';
+	OutboxStatus,
+	REDACTED_OUTBOX_PAYLOAD,
+} from "../../events/event.constants.js";
+import type { DbClient } from "../client.js";
 
 /**
  * Acceso a la outbox para el relay (worker separado, opcion B).
@@ -24,20 +24,20 @@ import type { DbClient } from '../client.js';
  */
 
 export type PendingOutbox = {
-  id: string;
-  eventId: string;
-  eventType: string;
-  correlationId: string;
-  payload: unknown;
-  attempts: number;
+	id: string;
+	eventId: string;
+	eventType: string;
+	correlationId: string;
+	payload: unknown;
+	attempts: number;
 };
 
 export const makeOutboxRepository = (client: DbClient) => {
-  const { db } = client;
+	const { db } = client;
 
-  return {
-    async claimPending(limit: number): Promise<PendingOutbox[]> {
-      const rows = await db.execute(sql`
+	return {
+		async claimPending(limit: number): Promise<PendingOutbox[]> {
+			const rows = await db.execute(sql`
         SELECT id, event_id, event_type, correlation_id, payload, attempts
         FROM outbox
         WHERE status = ${OutboxStatus.PENDING} AND next_attempt_at <= NOW()
@@ -45,57 +45,57 @@ export const makeOutboxRepository = (client: DbClient) => {
         LIMIT ${limit}
         FOR UPDATE SKIP LOCKED
       `);
-      const list = rows as unknown as Array<{
-        id: string;
-        event_id: string;
-        event_type: string;
-        correlation_id: string;
-        payload: unknown;
-        attempts: number;
-      }>;
-      return list.map((r) => ({
-        id: r.id,
-        eventId: r.event_id,
-        eventType: r.event_type,
-        correlationId: r.correlation_id,
-        payload: r.payload,
-        attempts: r.attempts,
-      }));
-    },
+			const list = rows as unknown as Array<{
+				id: string;
+				event_id: string;
+				event_type: string;
+				correlation_id: string;
+				payload: unknown;
+				attempts: number;
+			}>;
+			return list.map((r) => ({
+				id: r.id,
+				eventId: r.event_id,
+				eventType: r.event_type,
+				correlationId: r.correlation_id,
+				payload: r.payload,
+				attempts: r.attempts,
+			}));
+		},
 
-    async markSent(id: string): Promise<void> {
-      await db.execute(sql`
+		async markSent(id: string): Promise<void> {
+			await db.execute(sql`
         UPDATE outbox
         SET status = ${OutboxStatus.SENT},
             payload = ${REDACTED_OUTBOX_PAYLOAD}::jsonb,
             published_at = NOW()
         WHERE id = ${id}
       `);
-    },
+		},
 
-    async reschedule(
-      id: string,
-      attempts: number,
-      delaySeconds: number,
-    ): Promise<void> {
-      await db.execute(sql`
+		async reschedule(
+			id: string,
+			attempts: number,
+			delaySeconds: number,
+		): Promise<void> {
+			await db.execute(sql`
         UPDATE outbox
         SET attempts = ${attempts},
             next_attempt_at = NOW() + (${delaySeconds} || ' seconds')::interval
         WHERE id = ${id}
       `);
-    },
+		},
 
-    /** Mensaje irreparable: deja de reintentarse y queda para revision manual. */
-    async markDead(id: string): Promise<void> {
-      await db.execute(sql`
+		/** Mensaje irreparable: deja de reintentarse y queda para revision manual. */
+		async markDead(id: string): Promise<void> {
+			await db.execute(sql`
         UPDATE outbox
         SET status = ${OutboxStatus.DEAD},
             payload = ${REDACTED_OUTBOX_PAYLOAD}::jsonb
         WHERE id = ${id}
       `);
-    },
-  };
+		},
+	};
 };
 
 export type OutboxRepository = ReturnType<typeof makeOutboxRepository>;

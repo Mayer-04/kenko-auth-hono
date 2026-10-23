@@ -1,6 +1,6 @@
-import { createHash, randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from "node:crypto";
 
-import type { ResetTokenTool } from '../../features/passwordreset/passwordreset.port.js';
+import type { ResetTokenTool } from "../../features/passwordreset/passwordreset.port.js";
 
 /**
  * Token de restablecimiento: opaco, aleatorio (CSPRNG de `node:crypto`),
@@ -19,14 +19,14 @@ import type { ResetTokenTool } from '../../features/passwordreset/passwordreset.
 export const SHA256_HEX_LENGTH = 64;
 
 export const makeResetTokenTool = (
-  randomBytesCount: number,
+	randomBytesCount: number,
 ): ResetTokenTool => {
-  return {
-    generate(): string {
-      return randomBytes(randomBytesCount).toString('base64url');
-    },
-    hash(token: string): string {
-      return createHash('sha256').update(token).digest('hex');
-    },
-  };
+	return {
+		generate(): string {
+			return randomBytes(randomBytesCount).toString("base64url");
+		},
+		hash(token: string): string {
+			return createHash("sha256").update(token).digest("hex");
+		},
+	};
 };

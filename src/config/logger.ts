@@ -1,7 +1,7 @@
-import winston from 'winston';
+import winston from "winston";
 
-import { SERVICE_NAME } from '../shared/service.js';
-import type { Environment } from './env.js';
+import { SERVICE_NAME } from "../shared/service.js";
+import type { Environment } from "./env.js";
 
 /**
  * Logger unico del servicio (Winston).
@@ -17,35 +17,35 @@ import type { Environment } from './env.js';
 let rootLogger: winston.Logger | undefined;
 
 const levelFor = (environment: Environment): string => {
-  if (environment === 'production') return 'info';
-  if (environment === 'test') return 'warn';
-  return 'debug';
+	if (environment === "production") return "info";
+	if (environment === "test") return "warn";
+	return "debug";
 };
 
 export const initLogger = (environment: Environment): winston.Logger => {
-  if (rootLogger !== undefined) return rootLogger;
+	if (rootLogger !== undefined) return rootLogger;
 
-  rootLogger = winston.createLogger({
-    level: levelFor(environment),
-    format: winston.format.combine(
-      winston.format.timestamp(),
-      winston.format.json(),
-    ),
-    defaultMeta: { service: SERVICE_NAME },
-    transports: [new winston.transports.Console()],
-  });
+	rootLogger = winston.createLogger({
+		level: levelFor(environment),
+		format: winston.format.combine(
+			winston.format.timestamp(),
+			winston.format.json(),
+		),
+		defaultMeta: { service: SERVICE_NAME },
+		transports: [new winston.transports.Console()],
+	});
 
-  return rootLogger;
+	return rootLogger;
 };
 
 export const getLogger = (): winston.Logger => {
-  if (rootLogger === undefined) {
-    throw new Error('Logger no inicializado. Llame a initLogger() primero.');
-  }
-  return rootLogger;
+	if (rootLogger === undefined) {
+		throw new Error("Logger no inicializado. Llame a initLogger() primero.");
+	}
+	return rootLogger;
 };
 
 /** Logger hijo con correlacion, sin PII. */
 export const withCorrelation = (correlationId: string): winston.Logger => {
-  return getLogger().child({ correlationId });
+	return getLogger().child({ correlationId });
 };

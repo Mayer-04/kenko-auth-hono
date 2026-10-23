@@ -12,13 +12,13 @@
  */
 
 export type RateLimitHit =
-  | { allowed: true }
-  | { allowed: false; retryAfterSeconds: number };
+	| { allowed: true }
+	| { allowed: false; retryAfterSeconds: number };
 
 export type RateLimiter = {
-  /**
-   * Incrementa el contador de `key` y evalua el limite fijo en la ventana.
-   * Debe ser atomico dentro del proceso.
-   */
-  hit(key: string, limit: number, windowMs: number): RateLimitHit;
+	/**
+	 * Incrementa el contador de `key` y evalua el limite fijo en la ventana.
+	 * Debe ser atomico dentro del proceso.
+	 */
+	hit(key: string, limit: number, windowMs: number): RateLimitHit;
 };

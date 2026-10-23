@@ -1,8 +1,8 @@
-import { MS_PER_SECOND } from '../../features/passwordreset/passwordreset.limits.js';
+import { MS_PER_SECOND } from "../../features/passwordreset/passwordreset.limits.js";
 import type {
-  RateLimiter,
-  RateLimitHit,
-} from '../../shared/ratelimit/ratelimit.port.js';
+	RateLimiter,
+	RateLimitHit,
+} from "../../shared/ratelimit/ratelimit.port.js";
 
 /**
  * Rate limiter en memoria (ventana fija por bucket).
@@ -19,38 +19,38 @@ import type {
 type Bucket = { count: number; resetAt: number };
 
 export const makeInMemoryRateLimiter = (options: {
-  bucketsMax: number;
-  now?: () => number;
+	bucketsMax: number;
+	now?: () => number;
 }): RateLimiter => {
-  const buckets = new Map<string, Bucket>();
-  const now = options.now ?? Date.now;
+	const buckets = new Map<string, Bucket>();
+	const now = options.now ?? Date.now;
 
-  const purgeExpired = (current: number): void => {
-    for (const [key, bucket] of buckets) {
-      if (bucket.resetAt <= current) buckets.delete(key);
-    }
-  };
+	const purgeExpired = (current: number): void => {
+		for (const [key, bucket] of buckets) {
+			if (bucket.resetAt <= current) buckets.delete(key);
+		}
+	};
 
-  return {
-    hit(key: string, limit: number, windowMs: number): RateLimitHit {
-      const current = now();
-      if (buckets.size >= options.bucketsMax) purgeExpired(current);
+	return {
+		hit(key: string, limit: number, windowMs: number): RateLimitHit {
+			const current = now();
+			if (buckets.size >= options.bucketsMax) purgeExpired(current);
 
-      const bucket = buckets.get(key);
-      if (bucket === undefined || bucket.resetAt <= current) {
-        buckets.set(key, { count: 1, resetAt: current + windowMs });
-        return { allowed: true };
-      }
-      if (bucket.count >= limit) {
-        return {
-          allowed: false,
-          retryAfterSeconds: Math.ceil(
-            (bucket.resetAt - current) / MS_PER_SECOND,
-          ),
-        };
-      }
-      bucket.count += 1;
-      return { allowed: true };
-    },
-  };
+			const bucket = buckets.get(key);
+			if (bucket === undefined || bucket.resetAt <= current) {
+				buckets.set(key, { count: 1, resetAt: current + windowMs });
+				return { allowed: true };
+			}
+			if (bucket.count >= limit) {
+				return {
+					allowed: false,
+					retryAfterSeconds: Math.ceil(
+						(bucket.resetAt - current) / MS_PER_SECOND,
+					),
+				};
+			}
+			bucket.count += 1;
+			return { allowed: true };
+		},
+	};
 };

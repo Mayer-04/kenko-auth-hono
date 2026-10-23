@@ -1,4 +1,4 @@
-import type { UserRegisteredDetail } from '../register/register.types.js';
+import type { UserRegisteredDetail } from "../register/register.types.js";
 
 /**
  * Puerto de persistencia de usuarios.
@@ -8,33 +8,33 @@ import type { UserRegisteredDetail } from '../register/register.types.js';
  * `createWithOutbox` es atomica: usuario + evento `pending` en una transaccion.
  */
 export type StoredUser = {
-  id: string;
-  email: string;
-  documentType: string;
-  documentNumber: string;
-  passwordHash: string;
+	id: string;
+	email: string;
+	documentType: string;
+	documentNumber: string;
+	passwordHash: string;
 };
 
 export type UserRepository = {
-  findByEmail(email: string): Promise<StoredUser | null>;
-  findByDocument(type: string, number: string): Promise<StoredUser | null>;
-  createWithOutbox(args: {
-    user: Omit<StoredUser, 'id'> & {
-      id: string;
-      firstName: string;
-      lastName: string;
-      birthDate: string;
-      gender: string;
-      phone: string;
-      addressLine: string;
-      city: string;
-    };
-    outbox: {
-      eventId: string;
-      eventType: 'UserRegistered';
-      eventVersion: '1';
-      correlationId: string;
-      payload: UserRegisteredDetail;
-    };
-  }): Promise<void>;
+	findByEmail(email: string): Promise<StoredUser | null>;
+	findByDocument(type: string, number: string): Promise<StoredUser | null>;
+	createWithOutbox(args: {
+		user: Omit<StoredUser, "id"> & {
+			id: string;
+			firstName: string;
+			lastName: string;
+			birthDate: string;
+			gender: string;
+			phone: string;
+			addressLine: string;
+			city: string;
+		};
+		outbox: {
+			eventId: string;
+			eventType: "UserRegistered";
+			eventVersion: "1";
+			correlationId: string;
+			payload: UserRegisteredDetail;
+		};
+	}): Promise<void>;
 };
