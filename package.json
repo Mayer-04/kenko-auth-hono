@@ -1,35 +1,35 @@
 {
-  "name": "kenko-auth-hono",
-  "scripts": {
-    "dev": "bun run --hot src/index.ts",
-    "relay": "bun run src/relay.ts",
-    "typecheck": "tsc --noEmit",
-    "lint": "biome check .",
-    "format": "biome check --write .",
-    "test": "vitest run tests/unit",
-    "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage tests/unit",
-    "test:integration": "bun --bun vitest run tests/integration",
-    "db:generate": "drizzle-kit generate",
-    "db:migrate": "bun run src/infra/db/migrate.ts",
-    "db:studio": "drizzle-kit studio"
-  },
-  "dependencies": {
-    "@aws-sdk/client-eventbridge": "3.1152.0",
-    "argon2": "0.45.1",
-    "drizzle-orm": "0.45.4",
-    "hono": "4.13.13",
-    "uuid": "14.0.3",
-    "winston": "3.19.0",
-    "zod": "4.6.7"
-  },
-  "devDependencies": {
-    "@biomejs/biome": "2.5.15",
-    "@hono/zod-validator": "0.9.1",
-    "@types/bun": "latest",
-    "@vitest/coverage-v8": "5.0.5",
-    "drizzle-kit": "0.31.11",
-    "typescript": "6.0.3",
-    "vitest": "5.0.5"
-  }
+	"name": "kenko-auth-hono",
+	"scripts": {
+		"dev": "bun run --hot src/index.ts",
+		"relay": "bun run src/relay.ts",
+		"typecheck": "tsc --noEmit",
+		"lint": "biome check .",
+		"format": "biome check --write .",
+		"test": "vitest run tests/unit",
+		"test:watch": "vitest",
+		"test:coverage": "vitest run --coverage tests/unit",
+		"test:integration": "bun --bun vitest run tests/integration",
+		"db:generate": "drizzle-kit generate",
+		"db:migrate": "bun run src/infra/db/migrate.ts",
+		"db:studio": "drizzle-kit studio"
+	},
+	"dependencies": {
+		"@aws-sdk/client-eventbridge": "3.1156.0",
+		"argon2": "0.45.1",
+		"drizzle-orm": "0.45.4",
+		"hono": "4.13.13",
+		"uuid": "14.0.3",
+		"winston": "3.19.0",
+		"zod": "4.6.7"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "2.6.2",
+		"@hono/zod-validator": "0.9.1",
+		"@types/bun": "latest",
+		"@vitest/coverage-v8": "5.0.5",
+		"drizzle-kit": "0.31.11",
+		"typescript": "7.0.2",
+		"vitest": "5.0.5"
+	}
 }
