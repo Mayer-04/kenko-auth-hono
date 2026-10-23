@@ -134,10 +134,10 @@ docs/openapi.yaml                 contrato OpenAPI de los endpoints
 
 Dos endpoints (OpenAPI en `docs/openapi.yaml`):
 
-| Endpoint                     | Comportamiento                                                                                                                                                                                          |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Endpoint                     | Comportamiento                                                                                                                                                                                                   |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `POST /auth/password/forgot` | Identificador: **documento** (tipo + número). Responde **siempre** `200 {data:{}}`, exista o no la cuenta (anti-enumeración). Genera el token y publica `PasswordResetRequested` vía outbox, en una transacción. |
-| `POST /auth/password/reset`  | Body: `token`, `password`, `confirmPassword`. Éxito → `200`. Token inválido/expirado/usado → **un único** `400 PASSWORD_RESET_INVALID`. Misma contraseña actual → `400 VALIDATION_ERROR`.               |
+| `POST /auth/password/reset`  | Body: `token`, `password`, `confirmPassword`. Éxito → `200`. Token inválido/expirado/usado → **un único** `400 PASSWORD_RESET_INVALID`. Misma contraseña actual → `400 VALIDATION_ERROR`.                        |
 
 ### Seguridad del token
 

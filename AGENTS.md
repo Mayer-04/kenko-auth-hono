@@ -9,7 +9,6 @@ Tu objetivo no es solo generar código, sino ayudar a construir un sistema coher
 Portal de salud de una EPS (Entidad Promotora de Salud) en Colombia. Se construye únicamente el backend, que luego será consumido por un frontend mediante API REST. El proyecto está en fase de **desarrollo**: puede haber código, contratos de eventos e infraestructura ya definidos. Respétalos y no los modifiques salvo que la tarea lo pida.
 
 Capacidades del sistema:
-
 - Registro y autenticación de usuarios.
 - Consulta y actualización del perfil.
 - Autorizaciones médicas (emisión y asociación), historial médico y certificado médico.
@@ -76,7 +75,6 @@ Cada servicio tiene su propio repositorio y su propio desarrollador, que define 
 ## Cómo trabajar una tarea
 
 Después de este contexto recibirás una tarea concreta (diseñar, implementar o revisar) con la información específica del servicio: eventos que publica o consume, reglas de EventBridge, consumidores y nombres de colas.
-
 1. **Entiende antes de actuar.** Revisa el código, la arquitectura, las pruebas, los contratos y las convenciones del repositorio relacionados con la tarea. No impongas estructuras ni patrones ajenos al repositorio.
 2. **Usa exactamente los nombres y contratos indicados.** No inventes nombres de colas, reglas, eventos, atributos, endpoints, contratos ni detalles de otros servicios; si faltan, pregúntalos.
 3. **Señala contradicciones.** Si la tarea contradice este contexto, avísalo antes de continuar.
@@ -89,7 +87,6 @@ Después de este contexto recibirás una tarea concreta (diseñar, implementar o
 ## Cuándo pedir aprobación antes de actuar
 
 Detente y pide confirmación cuando la tarea requiera:
-
 - Una decisión de negocio no definida.
 - Un cambio de contrato de eventos, de API pública o de arquitectura.
 - Una modificación de seguridad significativa (autenticación, autorización, cifrado, permisos IAM).
@@ -100,7 +97,6 @@ Para el resto, avanza sin pedir confirmaciones innecesarias, siguiendo el métod
 ## Comandos de verificación
 
 Completar por servicio (si faltan, descúbrelos en el repositorio y repórtalos como supuesto):
-
 - Compilación / tipos: `<comando>`
 - Pruebas unitarias: `<comando>`
 - Pruebas de integración: `<comando>`
@@ -110,7 +106,6 @@ Completar por servicio (si faltan, descúbrelos en el repositorio y repórtalos 
 ## Definición de terminado
 
 Una tarea está terminada solo cuando:
-
 - Se implementó el alcance acordado y se cumplen los criterios de aceptación verificables.
 - El código compila y las pruebas relevantes (nuevas y existentes) pasan.
 - El linter y las verificaciones del repositorio no reportan errores nuevos.
@@ -123,7 +118,6 @@ Código generado no es trabajo verificado, y pruebas unitarias exitosas no garan
 ## Informe final
 
 Entrega un resumen conciso con:
-
 1. Qué hiciste y el comportamiento obtenido.
 2. Decisiones técnicas relevantes.
 3. Supuestos asumidos.
@@ -148,7 +142,6 @@ Implementaremos el microservicio `Authentication` de la plataforma de salud Kenk
 La feature inicial y única dentro del alcance actual es **el registro de usuarios (`Register`)**.
 
 Antes de escribir o modificar código:
-
 1. Lee el archivo `AGENTS.md` de la raíz del proyecto.
 2. Inspecciona las skills disponibles en el directorio `.agents/` de la raíz del proyecto y aplica las que correspondan.
 3. Revisa la estructura, las convenciones, las dependencias y las implementaciones existentes del repositorio.
@@ -161,7 +154,6 @@ No inventes archivos, dependencias, comandos, convenciones ni capacidades del re
 ## 2. Contexto y alcance funcional
 
 `Authentication` será responsable de las capacidades de autenticación de los usuarios, entre ellas:
-
 - Registro de usuarios.
 - Inicio de sesión de usuarios registrados.
 - Recuperación de contraseña.
@@ -170,7 +162,6 @@ No inventes archivos, dependencias, comandos, convenciones ni capacidades del re
 **Alcance actual:** implementar únicamente la feature `Register`. Las demás capacidades se describen como contexto del sistema, pero no deben desarrollarse en esta etapa, salvo que el usuario lo solicite expresamente.
 
 El servicio se integra mediante eventos con los microservicios:
-
 - `Profile`
 - `Notifications`
 
@@ -206,7 +197,6 @@ El formulario de registro recopilará los siguientes datos:
 ## 4. Inicio de sesión: contexto, fuera del alcance actual
 
 En una futura feature de inicio de sesión se solicitarán:
-
 - Número de documento de identidad.
 - Contraseña.
 
@@ -217,7 +207,6 @@ No implementar esta feature durante el trabajo actual de `Register`.
 ### 5.1 Eventos definidos
 
 Por ahora se contemplan estos eventos:
-
 - `UserRegistered`
 - `PasswordResetRequested`
 - `MfaEnabled`
@@ -246,7 +235,6 @@ Colas que crearán o administrarán los equipos consumidores:
 | `Notifications` | `kenko-dev-notifications-authentication` | `kenko-dev-notifications-authentication-dlq` |
 
 Eventos esperados por consumidor:
-
 - `UserRegistered`: `Profile` y `Notifications`.
 - `PasswordResetRequested`: `Notifications`.
 - `MfaEnabled`: `Notifications`.
@@ -261,10 +249,10 @@ La llamada a EventBridge usa un envelope de `PutEvents` con estos campos:
 
 ```json
 {
-  "Source": "kenko.auth",
-  "DetailType": "UserRegistered",
-  "EventBusName": "kenko-dev-bus",
-  "Detail": "{...}"
+	"Source": "kenko.auth",
+	"DetailType": "UserRegistered",
+	"EventBusName": "kenko-dev-bus",
+	"Detail": "{...}"
 }
 ```
 
@@ -272,34 +260,34 @@ La llamada a EventBridge usa un envelope de `PutEvents` con estos campos:
 
 ```json
 {
-  "metadata": {
-    "eventId": "0192b3d1-1a2b-7c3d-8e4f-5a6b7c8d9e0f",
-    "eventVersion": "1",
-    "occurredAt": "2026-10-13T20:15:30Z",
-    "correlationId": "0192b3d1-1a2b-7c3d-8e4f-5a6b7c8d9e10"
-  },
-  "data": {
-    "userId": "0192b3d1-1a2b-7c3d-8e4f-5a6b7c8d9e0f",
-    "document": {
-      "type": "CC",
-      "number": "1020304050"
-    },
-    "person": {
-      "firstName": "Maria Fernanda",
-      "lastName": "Gomez Rojas",
-      "birthDate": "1995-03-21",
-      "gender": "female"
-    },
-    "contact": {
-      "email": "maria.gomez@example.com",
-      "emailVerified": false,
-      "phone": "+573001234567"
-    },
-    "address": {
-      "line": "Cra 15 # 93-60 Apto 402",
-      "city": "Bogota"
-    }
-  }
+	"metadata": {
+		"eventId": "0192b3d1-1a2b-7c3d-8e4f-5a6b7c8d9e0f",
+		"eventVersion": "1",
+		"occurredAt": "2026-10-13T20:15:30Z",
+		"correlationId": "0192b3d1-1a2b-7c3d-8e4f-5a6b7c8d9e10"
+	},
+	"data": {
+		"userId": "0192b3d1-1a2b-7c3d-8e4f-5a6b7c8d9e0f",
+		"document": {
+			"type": "CC",
+			"number": "1020304050"
+		},
+		"person": {
+			"firstName": "Maria Fernanda",
+			"lastName": "Gomez Rojas",
+			"birthDate": "1995-03-21",
+			"gender": "female"
+		},
+		"contact": {
+			"email": "maria.gomez@example.com",
+			"emailVerified": false,
+			"phone": "+573001234567"
+		},
+		"address": {
+			"line": "Cra 15 # 93-60 Apto 402",
+			"city": "Bogota"
+		}
+	}
 }
 ```
 
@@ -313,10 +301,10 @@ Implementado en la feature de recuperación de contraseña. El productor publica
 
 ```json
 {
-  "Source": "kenko.auth",
-  "DetailType": "PasswordResetRequested",
-  "EventBusName": "kenko-dev-bus",
-  "Detail": "{\"metadata\":{\"eventId\":\"0192b3d1-1a2b-7c3d-8e4f-5a6b7c8d9e0f\",\"eventVersion\":\"1\",\"occurredAt\":\"2026-10-06T16:10:00Z\",\"correlationId\":\"0192b3d1-1a2b-7c3d-8e4f-5a6b7c8d9e10\"},\"data\":{\"userId\":\"0192b3c4-7d8e-7f10-a2b3-4c5d6e7f8000\",\"email\":\"maria.gomez@example.com\",\"firstName\":\"Maria Fernanda\",\"resetUrl\":\"http://localhost:8080/reset#token=<token-de-ejemplo>\",\"expiresAt\":\"2026-10-06T16:30:00Z\"}}"
+	"Source": "kenko.auth",
+	"DetailType": "PasswordResetRequested",
+	"EventBusName": "kenko-dev-bus",
+	"Detail": "{\"metadata\":{\"eventId\":\"0192b3d1-1a2b-7c3d-8e4f-5a6b7c8d9e0f\",\"eventVersion\":\"1\",\"occurredAt\":\"2026-10-06T16:10:00Z\",\"correlationId\":\"0192b3d1-1a2b-7c3d-8e4f-5a6b7c8d9e10\"},\"data\":{\"userId\":\"0192b3c4-7d8e-7f10-a2b3-4c5d6e7f8000\",\"email\":\"maria.gomez@example.com\",\"firstName\":\"Maria Fernanda\",\"resetUrl\":\"http://localhost:8080/reset#token=<token-de-ejemplo>\",\"expiresAt\":\"2026-10-06T16:30:00Z\"}}"
 }
 ```
 
@@ -324,19 +312,19 @@ El contenido de `Detail` es:
 
 ```json
 {
-  "metadata": {
-    "eventId": "0192b3d1-1a2b-7c3d-8e4f-5a6b7c8d9e0f",
-    "eventVersion": "1",
-    "occurredAt": "2026-10-06T16:10:00Z",
-    "correlationId": "0192b3d1-1a2b-7c3d-8e4f-5a6b7c8d9e10"
-  },
-  "data": {
-    "userId": "0192b3c4-7d8e-7f10-a2b3-4c5d6e7f8000",
-    "email": "maria.gomez@example.com",
-    "firstName": "Maria Fernanda",
-    "resetUrl": "http://localhost:8080/reset#token=<token-de-ejemplo>",
-    "expiresAt": "2026-10-06T16:30:00Z"
-  }
+	"metadata": {
+		"eventId": "0192b3d1-1a2b-7c3d-8e4f-5a6b7c8d9e0f",
+		"eventVersion": "1",
+		"occurredAt": "2026-10-06T16:10:00Z",
+		"correlationId": "0192b3d1-1a2b-7c3d-8e4f-5a6b7c8d9e10"
+	},
+	"data": {
+		"userId": "0192b3c4-7d8e-7f10-a2b3-4c5d6e7f8000",
+		"email": "maria.gomez@example.com",
+		"firstName": "Maria Fernanda",
+		"resetUrl": "http://localhost:8080/reset#token=<token-de-ejemplo>",
+		"expiresAt": "2026-10-06T16:30:00Z"
+	}
 }
 ```
 
@@ -356,7 +344,6 @@ El contrato de `MfaEnabled` todavía no está definido. No inventar ni implement
 ### 6.1 Selección de la conexión
 
 Al configurar la conexión:
-
 1. Comprueba qué variables de entorno y convenciones existen en el proyecto.
 2. Si está configurada una URL de conexión para AWS RDS, intenta utilizarla.
 3. Si la variable está ausente o vacía, utiliza la URL de PostgreSQL definida para el entorno local con Docker Compose.
@@ -391,7 +378,6 @@ La prioridad solicitada es RDS cuando su URL esté configurada y la conexión lo
 ## 7. Registro de logs
 
 Utiliza el sistema de logging que ya esté establecido en el proyecto. Inspecciona primero si se utiliza el logger de Hono, Winston u otra solución.
-
 - Mantén una estrategia de logging unificada; no mezcles loggers de forma inconsistente.
 - Centraliza la configuración y el comportamiento del logger en el lugar apropiado.
 - Evalúa cómo acceder al logger desde los componentes sin propagarlo manualmente por todas partes de forma innecesaria. La inyección de dependencias es una alternativa que puede analizarse, no una decisión que deba imponerse sin revisar la arquitectura existente.
@@ -404,14 +390,12 @@ Utiliza el sistema de logging que ya esté establecido en el proyecto. Inspeccio
 Zod ya está instalado. Verifica la versión exacta en el proyecto y consulta la documentación oficial correspondiente antes de escribir código que lo utilice.
 
 Documentación indicada:
-
 - https://zod.dev/
 - https://zod.dev/api
 - https://zod.dev/error-formatting
 - https://zod.dev/blog/zod-4-6
 
 Buenas prácticas esperadas:
-
 - Utilizar las APIs compatibles con la versión instalada; no asumir que ejemplos de versiones anteriores siguen vigentes.
 - Definir esquemas claros y reutilizables, sin duplicar reglas innecesariamente.
 - Mantener diferenciadas la validación de entrada, la validación de dominio y las restricciones de base de datos.
@@ -424,7 +408,6 @@ Buenas prácticas esperadas:
 Drizzle ORM se utilizará para la persistencia en PostgreSQL y para administrar las migraciones.
 
 Consulta la documentación oficial antes de implementar la parte correspondiente:
-
 - https://orm.drizzle.team/docs/overview
 - https://orm.drizzle.team/docs/get-started-postgresql
 - https://orm.drizzle.team/docs/column-types
@@ -432,7 +415,6 @@ Consulta la documentación oficial antes de implementar la parte correspondiente
 - https://orm.drizzle.team/docs/sql-schema-declaration
 
 Antes de modificar el esquema:
-
 1. Revisa la configuración existente de Drizzle y las migraciones.
 2. Comprueba las convenciones del proyecto para nombres de tablas, columnas, claves e índices.
 3. Diseña la entidad de usuario y la tabla necesarias para `Register`, a partir de los campos definidos en este documento.
@@ -447,7 +429,6 @@ Analiza un patrón seguro para coordinar la persistencia del usuario con la publ
 Debe evaluarse el patrón **Transactional Outbox + Relay** u otra alternativa justificada. El objetivo es evitar que el usuario quede guardado sin que el evento llegue a publicarse, o que se publique un evento correspondiente a una transacción que finalmente no se confirmó.
 
 Antes de implementar:
-
 - Describe brevemente las opciones viables y sus compromisos.
 - Considera idempotencia, reintentos, duplicados, fallos temporales y observabilidad.
 - Define cómo se marcarán y reprocesarán los mensajes pendientes.
@@ -513,7 +494,6 @@ Los valores contradictorios o ambiguos de la configuración inicial deben verifi
 ## 13. Secuencia de trabajo incremental
 
 La implementación debe avanzar por etapas pequeñas. Esta secuencia es orientativa: debe ajustarse después de inspeccionar `AGENTS.md`, `.agents/` y el repositorio.
-
 1. **Inspección:** leer instrucciones del proyecto, skills, estructura y dependencias existentes.
 2. **Análisis del dominio:** identificar los campos de usuario, reglas de validación, datos obligatorios y decisiones pendientes.
 3. **Diseño de persistencia:** proponer entidad, tabla, tipos, índices y restricciones para PostgreSQL con Drizzle.
@@ -530,7 +510,6 @@ La implementación debe avanzar por etapas pequeñas. Esta secuencia es orientat
 ## 14. Documentación de referencia
 
 Consulta documentación oficial y vigente antes de implementar funciones que dependan de APIs o comportamientos que puedan haber cambiado:
-
 - Zod: https://zod.dev/
 - Zod API: https://zod.dev/api
 - Zod error formatting: https://zod.dev/error-formatting
@@ -546,7 +525,6 @@ Para AWS, Argon2id, UUIDv7 y otras tecnologías, consulta también la documentac
 ## 15. Primera acción esperada del agente
 
 Comienza **sin escribir código**:
-
 1. Lee `AGENTS.md`.
 2. Revisa las skills de `.agents/`.
 3. Inspecciona la estructura y las dependencias relevantes del repositorio.

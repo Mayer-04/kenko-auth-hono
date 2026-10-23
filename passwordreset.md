@@ -36,7 +36,6 @@ curl -i -X POST http://localhost:3000/auth/password/reset \
 ```
 
 Respuestas posibles:
-
 - `forgot`: `200 {data:{}}` siempre · `400` documento inválido · `429` rate limit (`Retry-After`).
 - `reset`: `200` ok · `400 PASSWORD_RESET_INVALID` (token inválido, expirado o ya usado: **un solo error**, no distingue) · `400 VALIDATION_ERROR` (contraseña inválida o igual a la actual) · `429` rate limit.
 
@@ -65,7 +64,6 @@ Usuario                API kenko-auth           Base de datos         Relay (bun
 ```
 
 Puntos clave del flujo:
-
 - El usuario y el evento se guardan **en la misma transacción** (outbox transaccional): no puede quedar un token sin evento ni un evento sin token.
 - El token en la base de datos vive **solo como hash SHA-256**; en claro solo existe dentro del fragmento de `data.resetUrl` (y hasta que Notifications mande el correo).
 - El relay es genérico: publica **cualquier** evento de la outbox usando el `eventType` de la fila como `DetailType`.
@@ -77,10 +75,10 @@ Envelope de `PutEvents` hacia el bus **`kenko-dev-bus`**:
 
 ```json
 {
-  "Source": "kenko.auth",
-  "DetailType": "PasswordResetRequested",
-  "EventBusName": "kenko-dev-bus",
-  "Detail": "{\"metadata\":{\"eventId\":\"…uuidv7…\",\"eventVersion\":\"1\",\"occurredAt\":\"2026-10-18T21:45:30Z\",\"correlationId\":\"…uuidv7…\"},\"data\":{\"userId\":\"…uuidv7…\",\"email\":\"maria.gomez@example.com\",\"firstName\":\"Maria Fernanda\",\"resetUrl\":\"http://localhost:8080/reset#token=9fQ…43 chars base64url…\",\"expiresAt\":\"2026-10-18T22:15:30Z\"}}"
+	"Source": "kenko.auth",
+	"DetailType": "PasswordResetRequested",
+	"EventBusName": "kenko-dev-bus",
+	"Detail": "{\"metadata\":{\"eventId\":\"…uuidv7…\",\"eventVersion\":\"1\",\"occurredAt\":\"2026-10-18T21:45:30Z\",\"correlationId\":\"…uuidv7…\"},\"data\":{\"userId\":\"…uuidv7…\",\"email\":\"maria.gomez@example.com\",\"firstName\":\"Maria Fernanda\",\"resetUrl\":\"http://localhost:8080/reset#token=9fQ…43 chars base64url…\",\"expiresAt\":\"2026-10-18T22:15:30Z\"}}"
 }
 ```
 
@@ -136,9 +134,8 @@ bun run test:integration   # 14 de integración (requiere Postgres local)
 ### Paso 2 — Coordinación con Notifications (equipo de Notifications, es lo crítico)
 
 Sin esto el evento se publica en el bus y **nadie lo consume**: el usuario nunca recibiría el correo. Acordar y ejecutar:
-
 - [ ] **Regla de EventBridge**: añadir `"PasswordResetRequested"` al patrón de `kenko-dev-auth-to-notifications` (misma cola, ya genérica por "authentication") **o** crear una regla nueva para ese `detail-type`. Ellos crean/modifican el recurso; Authentication no toca recursos de otros equipos.
-- [ ] ** plantilla del correo**: Auth ya envía `data.resetUrl` (`<PORTAL_BASE_URL>/reset#token=<token>`, ej. `http://localhost:8080/reset#token=<token>`). Notifications la usa tal cual en la plantilla, sin reconstruirla.
+- [ ] \*\* plantilla del correo**: Auth ya envía `data.resetUrl` (`<PORTAL_BASE_URL>/reset#token=<token>`, ej. `http://localhost:8080/reset#token=<token>`). Notifications la usa tal cual en la plantilla, sin reconstruirla.
 - [ ] **Tratamiento del payload**: tratarlo como secreto (contiene URL con token + email + nombre), borrar el mensaje tras procesarlo (si no, a los 3 recibos cae a la DLQ y retiene la URL 14 días), idempotencia por `eventId` y tolerancia a duplicados.
 - [ ] Definir quién configura la **retención** de la DLQ (hoy 14 días) y si se baja.
 
