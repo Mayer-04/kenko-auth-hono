@@ -1,0 +1,434 @@
+openapi: 3.1.0
+info:
+  title: Kenko Auth API
+  version: 0.3.0
+  description: >-
+    Microservicio Authentication de Kenko. Ningun flujo publica eventos
+    desde el login (refresh y logout tampoco); el registro y la recuperacion
+    publican via outbox + EventBridge.
+servers:
+  - url: http://localhost:{port}
+    variables:
+      port:
+        default: "3000"
+paths:
+  /auth/register:
+    post:
+      summary: Registrar usuario
+      description: >-
+        Crea el usuario y deja el evento `UserRegistered` pendiente en la
+        outbox (lo publica el relay). Duplicados de email o documento dan el
+        mismo 409 generico (anti-enumeracion).
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+      responses:
+        "201":
+          description: Usuario creado.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [userId]
+                    properties:
+                      userId:
+                        type: string
+                        format: uuid
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "409":
+          description: No se pudo completar el registro (generico, anti-enumeracion).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+  /auth/login:
+    post:
+      summary: Iniciar sesion
+      description: >-
+        Valida las credenciales por documento y devuelve un access token JWT
+        (HS256, 15 minutos) y un refresh token opaco (7 dias). Persiste la
+        primera sesion de una familia nueva. Responde siempre con
+        `Cache-Control: no-store`. No publica ningun evento.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Credenciales validas.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                example: no-store
+            X-Correlation-Id:
+              schema:
+                type: string
+                format: uuid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenPairResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          description: >-
+            Credenciales invalidas. Error generico unico: no distingue
+            usuario inexistente de contrasena incorrecta (anti-enumeracion).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              example:
+                error:
+                  code: UNAUTHORIZED
+                  message: Credenciales invalidas.
+                  correlationId: 0192b3d1-1a2b-7c3d-8e4f-5a6b7c8d9e10
+        "429":
+          description: Limite de solicitudes superado (por IP o por documento).
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /auth/refresh:
+    post:
+      summary: Rotar refresh token
+      description: >-
+        Presenta el refresh token vigente y devuelve un par nuevo; el anterior
+        queda invalidado. Presentar un token ya rotado revoca TODA la familia
+        (reuse detection). Errores indistinguibles: siempre el mismo 401
+        generico. `Cache-Control: no-store`. No publica ningun evento.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshRequest"
+      responses:
+        "200":
+          description: Rotacion exitosa.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                example: no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenPairResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          description: Sesion invalida, expirada o reutilizada (generico unico).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+  /auth/logout:
+    post:
+      summary: Cerrar sesion
+      description: >-
+        Revoca TODAS las sesiones activas del usuario (todos sus dispositivos).
+        Idempotente: con un token desconocido responde igual (200) sin hacer
+        nada. `Cache-Control: no-store`. No publica ningun evento.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshRequest"
+      responses:
+        "200":
+          description: Sesion cerrada (o token desconocido, mismo 200).
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                example: no-store
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    example: {}
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+  /auth/password/forgot:
+    post:
+      summary: Solicitar restablecimiento de contrasena
+      description: >-
+        Identifica por documento. Responde SIEMPRE 200 identico exista o no la
+        cuenta (anti-enumeracion). Publica `PasswordResetRequested` via outbox.
+        `Cache-Control: no-store`.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DocumentRequest"
+      responses:
+        "200":
+          description: Respuesta identica exista o no la cuenta.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                example: no-store
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    example: {}
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+  /auth/password/reset:
+    post:
+      summary: Restablecer contrasena
+      description: >-
+        Consume el token del enlace (en el BODY, nunca en la URL), cambia el
+        hash y revoca las sesiones de refresh activas en la misma transaccion.
+        Token invalido, expirado o usado: un unico 400 generico.
+        `Cache-Control: no-store`.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, password, confirmPassword]
+              properties:
+                token:
+                  type: string
+                  minLength: 1
+                password:
+                  type: string
+                  minLength: 8
+                  maxLength: 128
+                confirmPassword:
+                  type: string
+      responses:
+        "200":
+          description: Contrasena restablecida.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                example: no-store
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    example: {}
+        "400":
+          description: >-
+            Token invalido/expirado/usado (`PASSWORD_RESET_INVALID`, generico)
+            o la nueva contrasena es igual a la actual (`VALIDATION_ERROR`).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+components:
+  parameters:
+    CorrelationId:
+      name: X-Correlation-Id
+      in: header
+      required: false
+      schema:
+        type: string
+        format: uuid
+      description: >-
+        Identificador de correlacion. Si se omite o esta vacio, el servidor
+        genera uno (UUID v7) y lo devuelve en la respuesta. `POST
+        /auth/register` ademas lo regenera si no es un UUID valido.
+  schemas:
+    RegisterRequest:
+      type: object
+      required:
+        [
+          firstName,
+          lastName,
+          birthDate,
+          gender,
+          email,
+          phone,
+          addressLine,
+          city,
+          documentType,
+          documentNumber,
+          password,
+          confirmPassword,
+        ]
+      properties:
+        firstName:
+          type: string
+          maxLength: 100
+        lastName:
+          type: string
+          maxLength: 100
+        birthDate:
+          type: string
+          format: date
+        gender:
+          type: string
+          enum: [male, female, other]
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+          description: Formato internacional E.164.
+          example: +573001234567
+        addressLine:
+          type: string
+        city:
+          type: string
+        documentType:
+          type: string
+          enum: [CC, TI, CE, PA]
+        documentNumber:
+          type: string
+          minLength: 4
+          maxLength: 20
+        password:
+          type: string
+          minLength: 8
+          maxLength: 128
+        confirmPassword:
+          type: string
+    LoginRequest:
+      type: object
+      required: [documentType, documentNumber, password]
+      properties:
+        documentType:
+          type: string
+          enum: [CC, TI, CE, PA]
+          description: Tipo de documento (se acepta en cualquier caja).
+        documentNumber:
+          type: string
+          minLength: 4
+          maxLength: 20
+          pattern: "^[A-Z0-9]{4,20}$"
+          description: "Numero de documento (se normaliza: sin separadores, mayusculas)."
+        password:
+          type: string
+          minLength: 1
+          maxLength: 128
+          description: Contrasena (los espacios cuentan, sin normalizacion).
+    RefreshRequest:
+      type: object
+      required: [refreshToken]
+      properties:
+        refreshToken:
+          type: string
+          minLength: 1
+          description: Refresh token opaco, en el BODY (nunca en la URL).
+    DocumentRequest:
+      type: object
+      required: [documentType, documentNumber]
+      properties:
+        documentType:
+          type: string
+          enum: [CC, TI, CE, PA]
+        documentNumber:
+          type: string
+          minLength: 4
+          maxLength: 20
+    TokenPairResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [accessToken, refreshToken, expiresIn]
+          properties:
+            accessToken:
+              type: string
+              description: JWT HS256 con claims sub, iss, aud, exp, jti. Vida de 15 minutos.
+            refreshToken:
+              type: string
+              description: Token opaco (no es JWT). Solo para obtener nuevos tokens. Vida de 7 dias.
+            expiresIn:
+              type: integer
+              example: 900
+              description: Segundos de vida del access token.
+    ErrorEnvelope:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message, correlationId]
+          properties:
+            code:
+              type: string
+              example: UNAUTHORIZED
+            message:
+              type: string
+              example: Credenciales invalidas.
+            correlationId:
+              type: string
+              format: uuid
+  responses:
+    ValidationError:
+      description: Cuerpo de forma invalida.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    TooManyRequests:
+      description: Limite de solicitudes superado.
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"

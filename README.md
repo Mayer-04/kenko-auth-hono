@@ -84,16 +84,21 @@ src/
 ├── shared/                       puro: sin IO, sin dependencias de infra
 │   ├── errors.ts                 AppError y códigos de error
 │   ├── http.ts                   errorHandler y respuestas consistentes
-│   └── ids.ts                    UUID v7
+│   ├── ids.ts                    UUID v7
+│   ├── middleware/               correlation, no-store
+│   └── ratelimit/                puerto + ayudas HTTP (IP, checks)
 │
 ├── infra/                        tecnología, no reglas de negocio
 │   ├── db/
 │   │   ├── client.ts             drizzle sobre el SQL nativo de Bun
-│   │   ├── schema/               tablas Drizzle (users, outbox)
+│   │   ├── schema/               tablas Drizzle (users, outbox, refresh_sessions, password_reset_tokens)
 │   │   ├── repositories/         implementaciones de los puertos
 │   │   └── migrations/           generadas por drizzle-kit
 │   ├── password/
 │   │   └── argon2-hasher.ts      implementa PasswordHasher
+│   ├── token/
+│   │   ├── jwt-signer.ts         HS256 con `jose` (firma y verifica access)
+│   │   └── refresh-token.ts      opaco CSPRNG + SHA-256 + timingSafeEqual
 │   └── events/
 │       ├── eventbridge-client.ts cliente y configuración del bus
 │       ├── eventbridge-publisher.ts escribe el evento en la outbox
@@ -106,6 +111,10 @@ src/
     │   ├── register.port.ts      UserRepository, PasswordHasher, EventPublisher
     │   ├── register.service.ts   caso de uso
     │   ├── register.route.ts     POST /auth/register
+    │   └── index.ts              punto de entrada de la feature
+    ├── login/
+    │   ├── login.service.ts      casos de uso login, refresh (rotacion + reuse) y logout
+    │   ├── login.route.ts        POST /auth/login, /auth/refresh, /auth/logout
     │   └── index.ts              punto de entrada de la feature
     └── passwordreset/
         ├── passwordreset.types.ts   dominio y contrato del evento
@@ -146,8 +155,9 @@ Dos endpoints (OpenAPI en `docs/openapi.yaml`):
 - TTL de 30 minutos (constante `PasswordResetLimits.TOKEN_TTL_MINUTES`), un solo uso.
 - Solicitar uno nuevo invalida los anteriores del usuario.
 - El consumo es **atómico**: UPDATE condicional del token + cambio del hash de
-  contraseña + invalidación del resto, en una transacción. Dos peticiones
-  concurrentes con el mismo token: solo una tiene éxito.
+  contraseña + invalidación del resto + revocación de las sesiones de refresh
+  `active`, en una transacción. Dos peticiones concurrentes con el mismo
+  token: solo una tiene éxito.
 - El token viaja en el **BODY** de `reset`, nunca en la URL del API.
 - Ambos endpoints responden con `Cache-Control: no-store`.
 
@@ -173,12 +183,27 @@ La outbox **redacta el payload** (`{"redacted":true}`) al pasar a `sent` o
 `correlation_id` pero deja de retener la URL y el token. Los reintentos no se ven
 afectados (el payload solo se toca en estados terminales).
 
-### Puntos de extensión (login y MFA, fuera de alcance)
+### Sesion (login, refresh, logout)
 
-Cuando existan sesiones y refresh tokens, la revocación de **todas** las
-sesiones del usuario deberá ocurrir dentro de
-`consumeTokenAndUpdatePassword`, en la misma transacción. Ver
-`passwordreset.port.ts`.
+Tres endpoints (OpenAPI en `docs/openapi.yaml`):
+
+| Endpoint             | Comportamiento                                                                                                                                                                                                                      |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /auth/login`   | Body: documento (tipo + número) y `password`. Éxito → `200 {data:{accessToken, refreshToken, expiresIn}}` y fila `active` en `refresh_sessions`. Credenciales inválidas → **único** `401 UNAUTHORIZED` genérico (anti-enumeración). |
+| `POST /auth/refresh` | Body: `refreshToken`. Rota en una transacción y devuelve par nuevo. Token ya usado → revoca **toda la familia** (reuse detection) + `401`. Desconocido/revocado/expirado → mismo `401`.                                             |
+| `POST /auth/logout`  | Body: `refreshToken`. Revoca **todas** las sesiones `active` del usuario. Siempre `200 {data:{}}` (idempotente).                                                                                                                    |
+
+Seguridad de los tokens:
+- Access: JWT HS256 (`iss=kenko-auth`, `aud=kenko-api`, `exp` 15 min, `kid` fijo `hs256-01`). Firma/verificación en `infra/token/jwt-signer.ts` (`jose`); HS256 es decisión temporal, ES256/JWKS queda para después sin tocar el servicio.
+- Refresh: opaco (CSPRNG 32 bytes, base64url); en BD solo su hash SHA-256, comparado con `timingSafeEqual`. TTL 7 días, cadena por `family_id`, estados `active/rotated/revoked`.
+- Ambos viajan en el **BODY**, nunca en la URL. Las tres rutas responden con `Cache-Control: no-store`.
+- Rate limiting en aplicación por IP (login también por documento), con las ayudas compartidas de `shared/ratelimit/rate-limit-http.ts`.
+
+### Puntos de extensión (MFA, fuera de alcance)
+
+Cuando exista MFA, cualquier paso que exija la política MFA vigente deberá
+integrarse en los flujos de login/refresh/reset según el contrato que se
+acuerde. Ver `passwordreset.port.ts`.
 
 ### Revisión jurídica pendiente (no es una afirmación de cumplimiento)
 
