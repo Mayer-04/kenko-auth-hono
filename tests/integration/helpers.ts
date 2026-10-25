@@ -2,6 +2,13 @@ import type { SQL } from "bun";
 import { drizzle } from "drizzle-orm/bun-sql";
 
 import { type AppDeps, buildApp } from "../../src/app.js";
+import type { LoginRouteLimits } from "../../src/features/login/index.js";
+import {
+	LoginLimits,
+	makeLoginService,
+	makeLogoutService,
+	makeRefreshSessionService,
+} from "../../src/features/login/index.js";
 import {
 	MS_PER_MINUTE,
 	PasswordResetLimits,
@@ -14,10 +21,13 @@ import {
 import { makeRegisterService } from "../../src/features/register/register.service.js";
 import type { DbClient } from "../../src/infra/db/client.js";
 import { makePasswordResetRepository } from "../../src/infra/db/repositories/password-reset.repository.js";
+import { makeRefreshSessionRepository } from "../../src/infra/db/repositories/refresh-session.repository.js";
 import { makeUserRepository } from "../../src/infra/db/repositories/user.repository.js";
 import { makeArgon2Hasher } from "../../src/infra/password/argon2-hasher.js";
 import { makeInMemoryRateLimiter } from "../../src/infra/ratelimit/in-memory-rate-limiter.js";
 import { makeResetTokenTool } from "../../src/infra/security/reset-token.js";
+import { makeJwtSigner } from "../../src/infra/token/jwt-signer.js";
+import { makeRefreshTokenTool } from "../../src/infra/token/refresh-token.js";
 import { newId } from "../../src/shared/ids.js";
 
 /**
@@ -63,10 +73,20 @@ export const TEST_ROUTE_LIMITS: PasswordResetRouteLimits = {
 	windowMs: 60 * MS_PER_MINUTE,
 };
 
+/** Limites de login generosos para no interferir con las pruebas. */
+export const TEST_LOGIN_ROUTE_LIMITS: LoginRouteLimits = {
+	loginIpMax: 1000,
+	loginDocumentMax: 1000,
+	refreshIpMax: 1000,
+	logoutIpMax: 1000,
+	windowMs: 60 * MS_PER_MINUTE,
+};
+
 export const buildTestApp = (
 	sql: SQL,
 	overrides: {
 		limits?: PasswordResetRouteLimits;
+		loginLimits?: LoginRouteLimits;
 		newEventId?: () => string;
 		baseUrl?: string;
 	} = {},
@@ -114,8 +134,55 @@ export const buildTestApp = (
 		logger,
 	});
 
+	const sessions = makeRefreshSessionRepository(client);
+	const jwtSigner = makeJwtSigner({
+		secret: "test-jwt-secret-con-al-menos-32-caracteres",
+		issuer: "kenko-auth",
+		audience: "kenko-api",
+		kid: LoginLimits.JWT_KID,
+	});
+	const refreshTokenTool = makeRefreshTokenTool(
+		LoginLimits.REFRESH_RANDOM_BYTES,
+	);
+
+	const loginService = makeLoginService({
+		users,
+		sessions,
+		hasher,
+		accessTokens: jwtSigner,
+		refreshTokens: refreshTokenTool,
+		newSessionId: () => newId(),
+		newFamilyId: () => newId(),
+		newJwtId: () => newId(),
+		now: () => new Date(),
+		accessTtlSeconds: LoginLimits.ACCESS_TTL_SECONDS,
+		refreshTtlDays: LoginLimits.REFRESH_TTL_DAYS,
+		logger,
+	});
+
+	const refreshService = makeRefreshSessionService({
+		sessions,
+		accessTokens: jwtSigner,
+		refreshTokens: refreshTokenTool,
+		newSessionId: () => newId(),
+		newJwtId: () => newId(),
+		now: () => new Date(),
+		accessTtlSeconds: LoginLimits.ACCESS_TTL_SECONDS,
+		refreshTtlDays: LoginLimits.REFRESH_TTL_DAYS,
+		logger,
+	});
+
+	const logoutService = makeLogoutService({
+		sessions,
+		refreshTokens: refreshTokenTool,
+		logger,
+	});
+
 	const deps: AppDeps = {
 		registerService,
+		loginService,
+		refreshService,
+		logoutService,
 		forgotService,
 		resetService,
 		rateLimiter: makeInMemoryRateLimiter({
@@ -123,6 +190,7 @@ export const buildTestApp = (
 		}),
 		routeLogger: logger,
 		routeLimits: overrides.limits ?? TEST_ROUTE_LIMITS,
+		loginRouteLimits: overrides.loginLimits ?? TEST_LOGIN_ROUTE_LIMITS,
 	};
 
 	return { app: buildApp(deps), captured: entries };
