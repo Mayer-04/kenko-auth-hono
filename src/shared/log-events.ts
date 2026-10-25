@@ -21,6 +21,13 @@ export const LogEvent = {
 	PASSWORD_RESET_REQUESTED: "password_reset.requested",
 	PASSWORD_RESET_COMPLETED: "password_reset.completed",
 	PASSWORD_RESET_RATE_LIMITED: "password_reset.rate_limited",
+	LOGIN_SUCCEEDED: "login.succeeded",
+	LOGIN_FAILED: "login.failed",
+	LOGIN_RATE_LIMITED: "login.rate_limited",
+	LOGIN_REFRESHED: "login.refreshed",
+	LOGIN_REFRESH_FAILED: "login.refresh_failed",
+	LOGIN_REUSE_DETECTED: "login.reuse_detected",
+	LOGIN_LOGGED_OUT: "login.logged_out",
 } as const;
 
 export type LogEvent = (typeof LogEvent)[keyof typeof LogEvent];

@@ -96,6 +96,14 @@ export const reusedPassword = (correlationId: string): AppError => {
 	);
 };
 
+/** Credenciales invalidas: UNICO error generico del login (anti-enumeracion).
+ * No distingue usuario inexistente de contrasena incorrecta. */
+export const invalidCredentials = (correlationId: string): AppError => {
+	return new AppError("UNAUTHORIZED", "Credenciales invalidas.", {
+		correlationId,
+	});
+};
+
 /** Limite de solicitudes alcanzado (rate limiting). */
 export const rateLimitedError = (correlationId: string): AppError => {
 	return new AppError(
