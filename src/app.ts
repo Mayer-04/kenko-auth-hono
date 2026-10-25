@@ -1,7 +1,13 @@
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { secureHeaders } from "hono/secure-headers";
-
+import type {
+	LoginRouteLimits,
+	LoginService,
+	LogoutService,
+	RefreshService,
+} from "./features/login/index.js";
+import { makeLoginRoute } from "./features/login/index.js";
 import { makePasswordResetRoute } from "./features/passwordreset/index.js";
 import type {
 	ForgotService,
@@ -27,11 +33,15 @@ import { REQUEST_BODY_LIMIT_BYTES } from "./shared/request-limits.js";
  */
 export type AppDeps = {
 	registerService: RegisterService;
+	loginService: LoginService;
+	refreshService: RefreshService;
+	logoutService: LogoutService;
 	forgotService: ForgotService;
 	resetService: ResetService;
 	rateLimiter: RateLimiter;
 	routeLogger: PasswordResetLogger;
 	routeLimits: PasswordResetRouteLimits;
+	loginRouteLimits: LoginRouteLimits;
 };
 
 export const buildApp = (deps: AppDeps): Hono<{ Variables: AppVariables }> => {
@@ -61,6 +71,16 @@ export const buildApp = (deps: AppDeps): Hono<{ Variables: AppVariables }> => {
 
 	const register = makeRegisterRoute(deps.registerService);
 	app.route("/", register);
+
+	const login = makeLoginRoute({
+		login: deps.loginService,
+		refresh: deps.refreshService,
+		logout: deps.logoutService,
+		rateLimiter: deps.rateLimiter,
+		logger: deps.routeLogger,
+		limits: deps.loginRouteLimits,
+	});
+	app.route("/", login);
 
 	const passwordReset = makePasswordResetRoute({
 		forgot: deps.forgotService,

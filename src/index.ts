@@ -9,11 +9,15 @@ import { LogEvent } from "./shared/log-events.js";
 const container = buildContainer();
 const app = buildApp({
 	registerService: container.registerService,
+	loginService: container.loginService,
+	refreshService: container.refreshService,
+	logoutService: container.logoutService,
 	forgotService: container.forgotService,
 	resetService: container.resetService,
 	rateLimiter: container.rateLimiter,
 	routeLogger: container.logger,
 	routeLimits: container.routeLimits,
+	loginRouteLimits: container.loginRouteLimits,
 });
 
 const port = container.env.PORT;

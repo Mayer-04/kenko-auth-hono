@@ -1,6 +1,5 @@
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
-import { createMiddleware } from "hono/factory";
 
 import {
 	AppError,
@@ -8,13 +7,16 @@ import {
 	rateLimitedError,
 } from "../../shared/errors.js";
 import {
-	CACHE_CONTROL_HEADER,
 	FORWARDED_FOR_HEADER,
-	NO_STORE,
 	RETRY_AFTER_HEADER,
 } from "../../shared/headers.js";
 import { type AppVariables, ok } from "../../shared/http.js";
 import { LogEvent } from "../../shared/log-events.js";
+import { noStoreMiddleware } from "../../shared/middleware/no-store.js";
+import {
+	clientIp,
+	firstRateLimitFailure,
+} from "../../shared/ratelimit/rate-limit-http.js";
 import type { RateLimiter } from "../../shared/ratelimit/ratelimit.port.js";
 import { MS_PER_SECOND } from "./passwordreset.limits.js";
 import type {
@@ -47,16 +49,6 @@ import {
  * - Nunca se registra token, documento, email ni password; solo IDs.
  */
 
-/** Sin proxy delante, la IP desconocida comparte bucket (documentado). */
-const UNKNOWN_CLIENT = "unknown";
-
-export const NO_STORE_MIDDLEWARE = createMiddleware<{
-	Variables: AppVariables;
-}>(async (c, next) => {
-	c.header(CACHE_CONTROL_HEADER, NO_STORE);
-	await next();
-});
-
 export type PasswordResetRouteLimits = {
 	forgotIpMax: number;
 	forgotDocumentMax: number;
@@ -73,33 +65,6 @@ export type PasswordResetRouteDeps = {
 	limits: PasswordResetRouteLimits;
 };
 
-type RateLimitCheck = {
-	scope: string;
-	key: string;
-	limit: number;
-	windowMs: number;
-};
-
-/** Devuelve el primer check que rechaza, o `null` si todos permiten. */
-const firstRateLimitFailure = (
-	limiter: RateLimiter,
-	checks: RateLimitCheck[],
-): { scope: string; retryAfterSeconds: number } | null => {
-	for (const check of checks) {
-		const hit = limiter.hit(check.key, check.limit, check.windowMs);
-		if (!hit.allowed) {
-			return { scope: check.scope, retryAfterSeconds: hit.retryAfterSeconds };
-		}
-	}
-	return null;
-};
-
-const clientIp = (forwardedFor: string | undefined): string => {
-	if (forwardedFor === undefined || forwardedFor === "") return UNKNOWN_CLIENT;
-	const first = forwardedFor.split(",")[0]?.trim();
-	return first === undefined || first === "" ? UNKNOWN_CLIENT : first;
-};
-
 export const makePasswordResetRoute = (
 	deps: PasswordResetRouteDeps,
 ): Hono<{ Variables: AppVariables }> => {
@@ -107,7 +72,7 @@ export const makePasswordResetRoute = (
 
 	route.post(
 		"/auth/password/forgot",
-		NO_STORE_MIDDLEWARE,
+		noStoreMiddleware,
 		zValidator("json", ForgotPasswordSchema),
 		async (c) => {
 			const correlationId = c.get("correlationId");
@@ -164,7 +129,7 @@ export const makePasswordResetRoute = (
 
 	route.post(
 		"/auth/password/reset",
-		NO_STORE_MIDDLEWARE,
+		noStoreMiddleware,
 		zValidator("json", ResetPasswordSchema),
 		async (c) => {
 			const correlationId = c.get("correlationId");

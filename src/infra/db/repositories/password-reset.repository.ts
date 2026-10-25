@@ -10,7 +10,12 @@ import {
 	USER_AGGREGATE_TYPE,
 } from "../../events/event.constants.js";
 import type { DbClient } from "../client.js";
-import { outbox, passwordResetTokens, users } from "../schema/index.js";
+import {
+	outbox,
+	passwordResetTokens,
+	refreshSessions,
+	users,
+} from "../schema/index.js";
 
 /**
  * Implementacion Drizzle de la persistencia de recuperacion de contrasena.
@@ -24,13 +29,10 @@ import { outbox, passwordResetTokens, users } from "../schema/index.js";
  * - `createTokenWithOutbox`: invalida tokens anteriores + inserta token +
  *   fila outbox pending en UNA transaccion.
  * - `consumeTokenAndUpdatePassword`: UPDATE condicional del token (activo),
- *   UPDATE del hash de contrasena e invalidacion de los demas tokens en UNA
+ *   UPDATE del hash de contrasena, invalidacion de los demas tokens Y
+ *   revocacion de las sesiones de refresh `active` del usuario en UNA
  *   transaccion. Dos requests concurrentes con el mismo token: solo uno
  *   ve una fila en el UPDATE condicional.
- *
- * Punto de extension (fuera de alcance hoy): cuando existan sesiones y
- * refresh tokens (login/MFA), su revocacion debe ocurrir dentro de
- * `consumeTokenAndUpdatePassword`, en esta misma transaccion.
  */
 
 export const makePasswordResetRepository = (
@@ -145,8 +147,7 @@ export const makePasswordResetRepository = (
 					.where(eq(users.id, userId));
 
 				// Invalida el resto de tokens pendientes del usuario en la MISMA
-				// transaccion. Punto de extension: revocar sesiones/refresh tokens
-				// aqui, cuando esas features existan.
+				// transaccion.
 				await tx
 					.update(passwordResetTokens)
 					.set({ invalidatedAt: sql`now()` })
@@ -155,6 +156,20 @@ export const makePasswordResetRepository = (
 							eq(passwordResetTokens.userId, userId),
 							isNull(passwordResetTokens.usedAt),
 							isNull(passwordResetTokens.invalidatedAt),
+						),
+					);
+
+				// Revoca las sesiones de refresh `active` del usuario en la MISMA
+				// transaccion: una contrasena nueva invalida los refresh emitidos
+				// con la anterior. Un access JWT ya emitido sigue valido hasta su
+				// `exp` (15 min, decision aceptada).
+				await tx
+					.update(refreshSessions)
+					.set({ status: "revoked", revokedAt: sql`now()` })
+					.where(
+						and(
+							eq(refreshSessions.userId, userId),
+							eq(refreshSessions.status, "active"),
 						),
 					);
 

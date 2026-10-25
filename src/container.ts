@@ -2,6 +2,18 @@ import type winston from "winston";
 
 import { loadEnv, resolveDatabase } from "./config/env.js";
 import { initLogger } from "./config/logger.js";
+import type {
+	LoginRouteLimits,
+	LoginService,
+	LogoutService,
+	RefreshService,
+} from "./features/login/index.js";
+import {
+	LoginLimits,
+	makeLoginService,
+	makeLogoutService,
+	makeRefreshSessionService,
+} from "./features/login/index.js";
 import {
 	MS_PER_MINUTE,
 	makeForgotPasswordService,
@@ -18,6 +30,7 @@ import { makeRegisterService } from "./features/register/index.js";
 import type { RegisterService } from "./features/register/register.port.js";
 import { createDb, type DbClient } from "./infra/db/client.js";
 import { makePasswordResetRepository } from "./infra/db/repositories/password-reset.repository.js";
+import { makeRefreshSessionRepository } from "./infra/db/repositories/refresh-session.repository.js";
 import { makeUserRepository } from "./infra/db/repositories/user.repository.js";
 import {
 	createEventBridgeClient,
@@ -26,6 +39,8 @@ import {
 import { makeArgon2Hasher } from "./infra/password/argon2-hasher.js";
 import { makeInMemoryRateLimiter } from "./infra/ratelimit/in-memory-rate-limiter.js";
 import { makeResetTokenTool } from "./infra/security/reset-token.js";
+import { makeJwtSigner } from "./infra/token/jwt-signer.js";
+import { makeRefreshTokenTool } from "./infra/token/refresh-token.js";
 import { newId } from "./shared/ids.js";
 import { LogEvent } from "./shared/log-events.js";
 import type { RateLimiter } from "./shared/ratelimit/ratelimit.port.js";
@@ -39,10 +54,14 @@ export type Container = {
 	logger: winston.Logger;
 	dbClient: DbClient;
 	registerService: RegisterService;
+	loginService: LoginService;
+	refreshService: RefreshService;
+	logoutService: LogoutService;
 	forgotService: ForgotService;
 	resetService: ResetService;
 	rateLimiter: RateLimiter;
 	routeLimits: PasswordResetRouteLimits;
+	loginRouteLimits: LoginRouteLimits;
 	eventBusName: string;
 };
 
@@ -102,6 +121,50 @@ export const buildContainer = (): Container => {
 		logger: resetLogger,
 	});
 
+	const jwtSigner = makeJwtSigner({
+		secret: env.JWT_SECRET,
+		issuer: env.JWT_ISSUER,
+		audience: env.JWT_AUDIENCE,
+		kid: LoginLimits.JWT_KID,
+	});
+	const refreshTokenTool = makeRefreshTokenTool(
+		LoginLimits.REFRESH_RANDOM_BYTES,
+	);
+	const refreshSessions = makeRefreshSessionRepository(dbClient);
+
+	const loginService = makeLoginService({
+		users,
+		sessions: refreshSessions,
+		hasher,
+		accessTokens: jwtSigner,
+		refreshTokens: refreshTokenTool,
+		newSessionId: () => newId(),
+		newFamilyId: () => newId(),
+		newJwtId: () => newId(),
+		now: () => new Date(),
+		accessTtlSeconds: LoginLimits.ACCESS_TTL_SECONDS,
+		refreshTtlDays: LoginLimits.REFRESH_TTL_DAYS,
+		logger: resetLogger,
+	});
+
+	const refreshService = makeRefreshSessionService({
+		sessions: refreshSessions,
+		accessTokens: jwtSigner,
+		refreshTokens: refreshTokenTool,
+		newSessionId: () => newId(),
+		newJwtId: () => newId(),
+		now: () => new Date(),
+		accessTtlSeconds: LoginLimits.ACCESS_TTL_SECONDS,
+		refreshTtlDays: LoginLimits.REFRESH_TTL_DAYS,
+		logger: resetLogger,
+	});
+
+	const logoutService = makeLogoutService({
+		sessions: refreshSessions,
+		refreshTokens: refreshTokenTool,
+		logger: resetLogger,
+	});
+
 	const rateLimiter = makeInMemoryRateLimiter({
 		bucketsMax: PasswordResetLimits.RATE_BUCKETS_MAX,
 	});
@@ -114,15 +177,27 @@ export const buildContainer = (): Container => {
 		windowMs: PasswordResetLimits.RATE_WINDOW_MINUTES * MS_PER_MINUTE,
 	};
 
+	const loginRouteLimits: LoginRouteLimits = {
+		loginIpMax: LoginLimits.LOGIN_IP_MAX_REQUESTS,
+		loginDocumentMax: LoginLimits.LOGIN_DOCUMENT_MAX_REQUESTS,
+		refreshIpMax: LoginLimits.REFRESH_IP_MAX_REQUESTS,
+		logoutIpMax: LoginLimits.LOGOUT_IP_MAX_REQUESTS,
+		windowMs: LoginLimits.RATE_WINDOW_MINUTES * MS_PER_MINUTE,
+	};
+
 	return {
 		env,
 		logger,
 		dbClient,
 		registerService,
+		loginService,
+		refreshService,
+		logoutService,
 		forgotService,
 		resetService,
 		rateLimiter,
 		routeLimits,
+		loginRouteLimits,
 		eventBusName: resolveBusName(env.EVENT_BUS_NAME),
 	};
 };

@@ -61,14 +61,10 @@ export type PasswordResetRepository = {
 
 	/**
 	 * Consumo ATOMICO: la actualizacion condicional del token (no usado y no
-	 * expirado), el cambio del hash de contrasena y la invalidacion de los
-	 * demas tokens pendientes del usuario ocurren en UNA transaccion.
+	 * expirado), el cambio del hash de contrasena, la invalidacion de los
+	 * demas tokens pendientes Y la revocacion de las sesiones de refresh
+	 * `active` del usuario ocurren en UNA transaccion.
 	 * `false` si otro request concurrente gano la carrera: solo uno tiene exito.
-	 *
-	 * Punto de extension (login/MFA, fuera de alcance hoy): cuando existan
-	 * sesiones y refresh tokens, la revocacion de todas las sesiones del
-	 * usuario debe ocurrir AQUI, en esta misma transaccion. Lo mismo aplica a
-	 * cualquier paso que exija la politica MFA vigente.
 	 */
 	consumeTokenAndUpdatePassword(args: {
 		tokenHash: string;
