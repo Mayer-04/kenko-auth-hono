@@ -57,6 +57,28 @@ export const EnvSchema = z.object({
 	POSTGRES_URL: z.url(),
 	AWS_RDS_POSTGRES_URL: optionalWhenPresent(z.url()),
 	PORTAL_BASE_URL: z.url().default("http://localhost:8080"),
+	/**
+	 * Secreto HMAC para JWT HS256. Minimo 32 caracteres (idealmente 32 bytes
+	 * aleatorios en base64, p. ej. `openssl rand -base64 32`). Nunca se
+	 * registra ni se versiona: solo vive en el entorno / gestor de secretos.
+	 */
+	JWT_SECRET: z
+		.string()
+		.min(32, "JWT_SECRET debe tener al menos 32 caracteres."),
+	/**
+	 * Claims `iss`/`aud` del access token. Vacios en `.env` equivalen a
+	 * ausentes y aplican el default (ver `optionalWhenPresent`).
+	 */
+	JWT_ISSUER: z.preprocess(
+		(value) =>
+			typeof value === "string" && value.trim() === "" ? undefined : value,
+		z.string().min(1).default("kenko-auth"),
+	),
+	JWT_AUDIENCE: z.preprocess(
+		(value) =>
+			typeof value === "string" && value.trim() === "" ? undefined : value,
+		z.string().min(1).default("kenko-api"),
+	),
 });
 
 export type Env = z.infer<typeof EnvSchema>;
