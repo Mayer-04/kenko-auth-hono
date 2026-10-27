@@ -3,6 +3,7 @@
 	"scripts": {
 		"dev": "bun run --hot src/index.ts",
 		"relay": "bun run src/relay.ts",
+		"relay:lambda": "bun run src/relay-handler.ts",
 		"typecheck": "tsc --noEmit",
 		"lint": "biome check .",
 		"format": "biome check --write .",
