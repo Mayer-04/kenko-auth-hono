@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Kenko Auth API
-  version: 0.3.0
+  version: 0.4.0
   description: >-
     Microservicio Authentication de Kenko. Ningun flujo publica eventos
     desde el login (refresh y logout tampoco); el registro y la recuperacion
@@ -184,6 +184,119 @@ paths:
           $ref: "#/components/responses/ValidationError"
         "429":
           $ref: "#/components/responses/TooManyRequests"
+  /auth/password/change:
+    post:
+      summary: Cambiar contraseña (autenticado)
+      description: >-
+        Requiere `Authorization: Bearer <accessToken>`. Verifica la actual,
+        valida la política de la nueva (mínimo 8, no común, distinta a la
+        actual y sin el correo o nombre completos), guarda el hash nuevo y
+        en la misma transacción revoca las sesiones de otras familias e
+        invalida los tokens de restablecimiento pendientes. La familia
+        actual sobrevive (con token pre-`sid` se revoca todo). Responde
+        `204` sin cuerpo y `Cache-Control: no-store`. Bloqueo temporal:
+        5 intentos por usuario cada 10 minutos. No publica ningún evento.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - $ref: "#/components/parameters/Authorization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [currentPassword, newPassword]
+              properties:
+                currentPassword:
+                  type: string
+                  minLength: 1
+                newPassword:
+                  type: string
+                  minLength: 8
+                  maxLength: 128
+      responses:
+        "204":
+          description: Contraseña cambiada.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                example: no-store
+        "400":
+          description: Nueva inválida (política, igual a la actual o con datos del usuario).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Sin token, token inválido o contraseña actual incorrecta.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+  /auth/email/change:
+    post:
+      summary: Cambiar correo (autenticado)
+      description: >-
+        Requiere `Authorization: Bearer <accessToken>`. Verifica la
+        contraseña actual, normaliza y valida el correo, y si esta libre lo
+        actualiza y publica `EmailChanged` en la misma transaccion
+        (outbox). Mismo correo: 200 idempotente sin escribir. Correo
+        ocupado: 409 generico (no revela nada). Las sesiones no se tocan.
+        `Cache-Control: no-store`. Bloqueo temporal: 5 intentos por usuario
+        cada 10 minutos.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - $ref: "#/components/parameters/Authorization"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [newEmail, currentPassword]
+              properties:
+                newEmail:
+                  type: string
+                  format: email
+                currentPassword:
+                  type: string
+                  minLength: 1
+      responses:
+        "200":
+          description: Correo cambiado (o ya era el mismo).
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                example: no-store
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    example: {}
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          description: Sin token, token invalido o contrasena actual incorrecta.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: Correo ya registrado (generico, no revela nada).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
   /auth/password/forgot:
     post:
       summary: Solicitar restablecimiento de contrasena
@@ -287,6 +400,14 @@ components:
         Identificador de correlacion. Si se omite o esta vacio, el servidor
         genera uno (UUID v7) y lo devuelve en la respuesta. `POST
         /auth/register` ademas lo regenera si no es un UUID valido.
+    Authorization:
+      name: Authorization
+      in: header
+      required: true
+      schema:
+        type: string
+        example: Bearer <accessToken>
+      description: Access token JWT obtenido en el login.
   schemas:
     RegisterRequest:
       type: object

@@ -199,6 +199,30 @@ Seguridad de los tokens:
 - Ambos viajan en el **BODY**, nunca en la URL. Las tres rutas responden con `Cache-Control: no-store`.
 - Rate limiting en aplicación por IP (login también por documento), con las ayudas compartidas de `shared/ratelimit/rate-limit-http.ts`.
 
+### Cuenta (contraseña y email, autenticados con `Authorization: Bearer`)
+
+Tres endpoints (OpenAPI en `docs/openapi.yaml`). El JWT lleva `sid`
+(familia de refresh) desde que existe `requireAuth`; tokens sin `sid`
+revocan todo al cambiar la contrasena.
+- `POST /auth/password/change`: `currentPassword` + `newPassword` (sin
+  confirmacion: solo frontend). Exito `204`. Actual incorrecta `401`
+  especifico. Nueva igual, debil o con datos del usuario `400`. Revoca
+  otras familias e invalida resets pendientes en una transaccion.
+  Bloqueo: 5 intentos por usuario cada 10 min (`429`).
+- `POST /auth/email/change`: `newEmail` + `currentPassword`. Exito
+  `200 {data:{}}` + evento `EmailChanged` via outbox (misma transaccion).
+  Mismo correo `200` sin escribir. Ocupado `409` generico.
+  No toca sesiones.
+
+Seguridad de la cuenta:
+- Access sin `sid` o inválido, o usuario inexistente: `401` generico.
+- El correo se normaliza igual que en registro (trim + minusculas) y tiene
+  UNIQUE en BD como ultima defensa (carrera → mismo `409`).
+- `EmailChanged` lleva `userId`, `oldEmail`, `newEmail` y `firstName`;
+  Profile actualiza por `userId` y Notifications avisa al correo viejo.
+  Sin tokens en el payload: la redaccion de outbox en terminales aplica
+  igual que al resto de eventos.
+
 ### Puntos de extensión (MFA, fuera de alcance)
 
 Cuando exista MFA, cualquier paso que exija la política MFA vigente deberá
