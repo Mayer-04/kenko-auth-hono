@@ -2,6 +2,15 @@ import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { secureHeaders } from "hono/secure-headers";
 import type {
+	AccountRouteLimits,
+	ChangePasswordService,
+	EmailChangeService,
+} from "./features/account/index.js";
+import {
+	makeChangeEmailRoute,
+	makeChangePasswordRoute,
+} from "./features/account/index.js";
+import type {
 	LoginRouteLimits,
 	LoginService,
 	LogoutService,
@@ -24,6 +33,7 @@ import {
 } from "./shared/http.js";
 import { HttpStatus } from "./shared/http-status.js";
 import { correlationMiddleware } from "./shared/middleware/correlation.js";
+import type { makeRequireAuth } from "./shared/middleware/require-auth.js";
 import type { RateLimiter } from "./shared/ratelimit/ratelimit.port.js";
 import { REQUEST_BODY_LIMIT_BYTES } from "./shared/request-limits.js";
 
@@ -36,12 +46,16 @@ export type AppDeps = {
 	loginService: LoginService;
 	refreshService: RefreshService;
 	logoutService: LogoutService;
+	changePasswordService: ChangePasswordService;
+	changeEmailService: EmailChangeService;
 	forgotService: ForgotService;
 	resetService: ResetService;
 	rateLimiter: RateLimiter;
+	requireAuth: ReturnType<typeof makeRequireAuth>;
 	routeLogger: PasswordResetLogger;
 	routeLimits: PasswordResetRouteLimits;
 	loginRouteLimits: LoginRouteLimits;
+	accountRouteLimits: AccountRouteLimits;
 };
 
 export const buildApp = (deps: AppDeps): Hono<{ Variables: AppVariables }> => {
@@ -90,6 +104,26 @@ export const buildApp = (deps: AppDeps): Hono<{ Variables: AppVariables }> => {
 		limits: deps.routeLimits,
 	});
 	app.route("/", passwordReset);
+
+	// Rutas autenticadas: `requireAuth` corre despues del middleware de
+	// correlacion y antes de la validacion del body.
+	app.use("/auth/password/change", deps.requireAuth);
+	app.use("/auth/email/change", deps.requireAuth);
+	const changePassword = makeChangePasswordRoute({
+		changePassword: deps.changePasswordService,
+		rateLimiter: deps.rateLimiter,
+		logger: deps.routeLogger,
+		limits: deps.accountRouteLimits,
+	});
+	app.route("/", changePassword);
+
+	const changeEmail = makeChangeEmailRoute({
+		changeEmail: deps.changeEmailService,
+		rateLimiter: deps.rateLimiter,
+		logger: deps.routeLogger,
+		limits: deps.accountRouteLimits,
+	});
+	app.route("/", changeEmail);
 
 	app.notFound((c) => notFoundHandler(c));
 	app.onError((err, c) => errorHandler(err, c));

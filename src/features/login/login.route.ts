@@ -18,6 +18,7 @@ import {
 	firstRateLimitFailure,
 } from "../../shared/ratelimit/rate-limit-http.js";
 import type { RateLimiter } from "../../shared/ratelimit/ratelimit.port.js";
+import { validationErrorHook } from "../../shared/validation.js";
 import type {
 	LoginLogger,
 	LoginService,
@@ -69,7 +70,7 @@ export const makeLoginRoute = (
 	route.post(
 		"/auth/login",
 		noStoreMiddleware,
-		zValidator("json", LoginSchema),
+		zValidator("json", LoginSchema, validationErrorHook),
 		async (c) => {
 			const correlationId = c.get("correlationId");
 			const body = c.req.valid("json");
@@ -124,7 +125,7 @@ export const makeLoginRoute = (
 	route.post(
 		"/auth/refresh",
 		noStoreMiddleware,
-		zValidator("json", RefreshSchema),
+		zValidator("json", RefreshSchema, validationErrorHook),
 		async (c) => {
 			const correlationId = c.get("correlationId");
 			const body = c.req.valid("json");
@@ -165,7 +166,7 @@ export const makeLoginRoute = (
 	route.post(
 		"/auth/logout",
 		noStoreMiddleware,
-		zValidator("json", LogoutSchema),
+		zValidator("json", LogoutSchema, validationErrorHook),
 		async (c) => {
 			const correlationId = c.get("correlationId");
 			const body = c.req.valid("json");

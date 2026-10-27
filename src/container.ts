@@ -3,6 +3,16 @@ import type winston from "winston";
 import { loadEnv, resolveDatabase } from "./config/env.js";
 import { initLogger } from "./config/logger.js";
 import type {
+	AccountRouteLimits,
+	ChangePasswordService,
+	EmailChangeService,
+} from "./features/account/index.js";
+import {
+	AccountLimits,
+	makeChangeEmailService,
+	makeChangePasswordService,
+} from "./features/account/index.js";
+import type {
 	LoginRouteLimits,
 	LoginService,
 	LogoutService,
@@ -43,6 +53,7 @@ import { makeJwtSigner } from "./infra/token/jwt-signer.js";
 import { makeRefreshTokenTool } from "./infra/token/refresh-token.js";
 import { newId } from "./shared/ids.js";
 import { LogEvent } from "./shared/log-events.js";
+import { makeRequireAuth } from "./shared/middleware/require-auth.js";
 import type { RateLimiter } from "./shared/ratelimit/ratelimit.port.js";
 
 /**
@@ -57,11 +68,15 @@ export type Container = {
 	loginService: LoginService;
 	refreshService: RefreshService;
 	logoutService: LogoutService;
+	changePasswordService: ChangePasswordService;
+	changeEmailService: EmailChangeService;
 	forgotService: ForgotService;
 	resetService: ResetService;
 	rateLimiter: RateLimiter;
+	requireAuth: ReturnType<typeof makeRequireAuth>;
 	routeLimits: PasswordResetRouteLimits;
 	loginRouteLimits: LoginRouteLimits;
+	accountRouteLimits: AccountRouteLimits;
 	eventBusName: string;
 };
 
@@ -165,6 +180,22 @@ export const buildContainer = (): Container => {
 		logger: resetLogger,
 	});
 
+	const changePasswordService = makeChangePasswordService({
+		users,
+		hasher,
+		logger: resetLogger,
+	});
+
+	const changeEmailService = makeChangeEmailService({
+		users,
+		hasher,
+		newEventId: () => newId(),
+		nowIso: () => new Date().toISOString(),
+		logger: resetLogger,
+	});
+
+	const requireAuth = makeRequireAuth(jwtSigner);
+
 	const rateLimiter = makeInMemoryRateLimiter({
 		bucketsMax: PasswordResetLimits.RATE_BUCKETS_MAX,
 	});
@@ -185,6 +216,14 @@ export const buildContainer = (): Container => {
 		windowMs: LoginLimits.RATE_WINDOW_MINUTES * MS_PER_MINUTE,
 	};
 
+	const accountRouteLimits: AccountRouteLimits = {
+		changeIpMax: AccountLimits.CHANGE_IP_MAX_REQUESTS,
+		emailIpMax: AccountLimits.EMAIL_IP_MAX_REQUESTS,
+		userMaxAttempts: AccountLimits.USER_MAX_ATTEMPTS,
+		lockoutWindowMs: AccountLimits.LOCKOUT_WINDOW_MINUTES * MS_PER_MINUTE,
+		windowMs: AccountLimits.RATE_WINDOW_MINUTES * MS_PER_MINUTE,
+	};
+
 	return {
 		env,
 		logger,
@@ -193,11 +232,15 @@ export const buildContainer = (): Container => {
 		loginService,
 		refreshService,
 		logoutService,
+		changePasswordService,
+		changeEmailService,
 		forgotService,
 		resetService,
 		rateLimiter,
+		requireAuth,
 		routeLimits,
 		loginRouteLimits,
+		accountRouteLimits,
 		eventBusName: resolveBusName(env.EVENT_BUS_NAME),
 	};
 };

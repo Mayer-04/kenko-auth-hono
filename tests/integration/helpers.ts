@@ -2,6 +2,11 @@ import type { SQL } from "bun";
 import { drizzle } from "drizzle-orm/bun-sql";
 
 import { type AppDeps, buildApp } from "../../src/app.js";
+import type { AccountRouteLimits } from "../../src/features/account/index.js";
+import {
+	makeChangeEmailService,
+	makeChangePasswordService,
+} from "../../src/features/account/index.js";
 import type { LoginRouteLimits } from "../../src/features/login/index.js";
 import {
 	LoginLimits,
@@ -29,6 +34,7 @@ import { makeResetTokenTool } from "../../src/infra/security/reset-token.js";
 import { makeJwtSigner } from "../../src/infra/token/jwt-signer.js";
 import { makeRefreshTokenTool } from "../../src/infra/token/refresh-token.js";
 import { newId } from "../../src/shared/ids.js";
+import { makeRequireAuth } from "../../src/shared/middleware/require-auth.js";
 
 /**
  * Constructor de la app para pruebas de integracion.
@@ -82,11 +88,21 @@ export const TEST_LOGIN_ROUTE_LIMITS: LoginRouteLimits = {
 	windowMs: 60 * MS_PER_MINUTE,
 };
 
+/** Limites de account generosos para no interferir con las pruebas. */
+export const TEST_ACCOUNT_ROUTE_LIMITS: AccountRouteLimits = {
+	changeIpMax: 1000,
+	emailIpMax: 1000,
+	userMaxAttempts: 1000,
+	lockoutWindowMs: 60 * MS_PER_MINUTE,
+	windowMs: 60 * MS_PER_MINUTE,
+};
+
 export const buildTestApp = (
 	sql: SQL,
 	overrides: {
 		limits?: PasswordResetRouteLimits;
 		loginLimits?: LoginRouteLimits;
+		accountLimits?: AccountRouteLimits;
 		newEventId?: () => string;
 		baseUrl?: string;
 	} = {},
@@ -178,19 +194,39 @@ export const buildTestApp = (
 		logger,
 	});
 
+	const changePasswordService = makeChangePasswordService({
+		users,
+		hasher,
+		logger,
+	});
+
+	const changeEmailService = makeChangeEmailService({
+		users,
+		hasher,
+		newEventId: () => newId(),
+		nowIso: () => new Date().toISOString(),
+		logger,
+	});
+
+	const requireAuth = makeRequireAuth(jwtSigner);
+
 	const deps: AppDeps = {
 		registerService,
 		loginService,
 		refreshService,
 		logoutService,
+		changePasswordService,
+		changeEmailService,
 		forgotService,
 		resetService,
 		rateLimiter: makeInMemoryRateLimiter({
 			bucketsMax: PasswordResetLimits.RATE_BUCKETS_MAX,
 		}),
+		requireAuth,
 		routeLogger: logger,
 		routeLimits: overrides.limits ?? TEST_ROUTE_LIMITS,
 		loginRouteLimits: overrides.loginLimits ?? TEST_LOGIN_ROUTE_LIMITS,
+		accountRouteLimits: overrides.accountLimits ?? TEST_ACCOUNT_ROUTE_LIMITS,
 	};
 
 	return { app: buildApp(deps), captured: entries };

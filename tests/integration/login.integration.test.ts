@@ -182,6 +182,14 @@ describe("sesion (login, refresh, logout)", () => {
 			body: JSON.stringify({ documentType: "XX" }),
 		});
 		expect(res.status).toBe(400);
+		// Sobre comun de errores (no el formato crudo del validador).
+		const json = (await res.json()) as {
+			error?: { code: string; message: string; correlationId: string };
+			success?: boolean;
+		};
+		expect(json.success).toBeUndefined();
+		expect(json.error?.code).toBe("VALIDATION_ERROR");
+		expect(typeof json.error?.correlationId).toBe("string");
 	});
 
 	it("429 al superar el limite por IP", async () => {

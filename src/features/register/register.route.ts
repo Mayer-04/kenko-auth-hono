@@ -5,6 +5,7 @@ import { AppError, internalError } from "../../shared/errors.js";
 import { CORRELATION_ID_HEADER } from "../../shared/headers.js";
 import { type AppVariables, created } from "../../shared/http.js";
 import { isUuid, newId } from "../../shared/ids.js";
+import { validationErrorHook } from "../../shared/validation.js";
 import type { Gender } from "../user/user.types.js";
 import type { RegisterService } from "./register.port.js";
 import { RegisterSchema } from "./register.schema.js";
@@ -25,7 +26,7 @@ export const makeRegisterRoute = (
 
 	route.post(
 		"/auth/register",
-		zValidator("json", RegisterSchema),
+		zValidator("json", RegisterSchema, validationErrorHook),
 		async (c) => {
 			const header = c.req.header(CORRELATION_ID_HEADER);
 			const correlationId =

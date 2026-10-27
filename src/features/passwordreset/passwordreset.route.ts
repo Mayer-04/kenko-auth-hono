@@ -18,6 +18,7 @@ import {
 	firstRateLimitFailure,
 } from "../../shared/ratelimit/rate-limit-http.js";
 import type { RateLimiter } from "../../shared/ratelimit/ratelimit.port.js";
+import { validationErrorHook } from "../../shared/validation.js";
 import { MS_PER_SECOND } from "./passwordreset.limits.js";
 import type {
 	ForgotService,
@@ -73,7 +74,7 @@ export const makePasswordResetRoute = (
 	route.post(
 		"/auth/password/forgot",
 		noStoreMiddleware,
-		zValidator("json", ForgotPasswordSchema),
+		zValidator("json", ForgotPasswordSchema, validationErrorHook),
 		async (c) => {
 			const correlationId = c.get("correlationId");
 			const body = c.req.valid("json");
@@ -130,7 +131,7 @@ export const makePasswordResetRoute = (
 	route.post(
 		"/auth/password/reset",
 		noStoreMiddleware,
-		zValidator("json", ResetPasswordSchema),
+		zValidator("json", ResetPasswordSchema, validationErrorHook),
 		async (c) => {
 			const correlationId = c.get("correlationId");
 			const body = c.req.valid("json");

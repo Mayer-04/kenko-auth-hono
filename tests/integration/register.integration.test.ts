@@ -142,5 +142,14 @@ describe("POST /auth/register", () => {
 			}),
 		});
 		expect(res.status).toBe(400);
+		// Sobre comun de errores (no el formato crudo del validador).
+		const json = (await res.json()) as {
+			error?: { code: string; message: string; correlationId: string };
+			success?: boolean;
+		};
+		expect(json.success).toBeUndefined();
+		expect(json.error?.code).toBe("VALIDATION_ERROR");
+		expect(typeof json.error?.message).toBe("string");
+		expect(typeof json.error?.correlationId).toBe("string");
 	});
 });
