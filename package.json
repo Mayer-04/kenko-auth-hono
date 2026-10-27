@@ -15,17 +15,17 @@
 		"db:studio": "drizzle-kit studio"
 	},
 	"dependencies": {
-		"@aws-sdk/client-eventbridge": "3.1156.0",
+		"@aws-sdk/client-eventbridge": "3.1157.0",
 		"argon2": "0.45.1",
 		"drizzle-orm": "0.45.4",
-		"hono": "4.13.13",
-		"jose": "^6.2.13",
+		"hono": "4.13.14",
+		"jose": "6.2.13",
 		"uuid": "14.0.3",
 		"winston": "3.19.0",
 		"zod": "4.6.7"
 	},
 	"devDependencies": {
-		"@biomejs/biome": "2.6.2",
+		"@biomejs/biome": "2.6.3",
 		"@hono/zod-validator": "0.9.1",
 		"@types/bun": "latest",
 		"@vitest/coverage-v8": "5.0.5",
