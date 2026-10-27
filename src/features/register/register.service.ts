@@ -1,3 +1,4 @@
+import { isUniqueViolation } from "../../shared/db-errors.js";
 import { registerConflict } from "../../shared/errors.js";
 import type { RegisterDeps, RegisterService } from "./register.port.js";
 import type { RegisterInput, UserRegisteredDetail } from "./register.types.js";
@@ -80,17 +81,4 @@ export const makeRegisterService = (deps: RegisterDeps): RegisterService => {
 
 		return { userId, correlationId };
 	};
-};
-
-/** Postgres 23505 (UNIQUE). Evita acoplar el servicio a Drizzle. */
-const isUniqueViolation = (err: unknown): boolean => {
-	if (typeof err !== "object" || err === null) return false;
-	const code = (err as { code?: unknown }).code;
-	if (code === "23505") return true;
-	const cause = (err as { cause?: unknown }).cause;
-	return (
-		typeof cause === "object" &&
-		cause !== null &&
-		(cause as { code?: unknown }).code === "23505"
-	);
 };

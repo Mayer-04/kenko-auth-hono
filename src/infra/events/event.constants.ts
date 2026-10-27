@@ -15,6 +15,9 @@ export const USER_REGISTERED_TYPE = "UserRegistered";
 /** `DetailType` de la solicitud de restablecimiento de contrasena. */
 export const PASSWORD_RESET_REQUESTED_TYPE = "PasswordResetRequested";
 
+/** `DetailType` del cambio de correo ya aplicado. */
+export const EMAIL_CHANGED_TYPE = "EmailChanged";
+
 /** Agregado dueño de la outbox. */
 export const USER_AGGREGATE_TYPE = "user";
 

@@ -11,6 +11,7 @@ import { HttpStatus } from "./http-status.js";
 export type ErrorCode =
 	| "VALIDATION_ERROR"
 	| "REGISTER_CONFLICT"
+	| "UPDATE_CONFLICT"
 	| "PASSWORD_RESET_INVALID"
 	| "RATE_LIMITED"
 	| "UNAUTHORIZED"
@@ -21,6 +22,7 @@ export type ErrorCode =
 const STATUS_BY_CODE: Record<ErrorCode, number> = {
 	VALIDATION_ERROR: HttpStatus.BAD_REQUEST,
 	REGISTER_CONFLICT: HttpStatus.CONFLICT,
+	UPDATE_CONFLICT: HttpStatus.CONFLICT,
 	PASSWORD_RESET_INVALID: HttpStatus.BAD_REQUEST,
 	RATE_LIMITED: HttpStatus.TOO_MANY_REQUESTS,
 	UNAUTHORIZED: HttpStatus.UNAUTHORIZED,
@@ -96,10 +98,40 @@ export const reusedPassword = (correlationId: string): AppError => {
 	);
 };
 
+/**
+ * Contrasena actual incorrecta en un endpoint autenticado: mensaje
+ * especifico aceptado (no revela nada nuevo: la identidad ya esta
+ * autenticada por el JWT). Mismo codigo 401 que el login.
+ */
+export const wrongCurrentPassword = (correlationId: string): AppError => {
+	return new AppError("UNAUTHORIZED", "Contrasena actual incorrecta.", {
+		correlationId,
+	});
+};
+
+/** La nueva contrasena contiene el correo o el nombre del usuario. */
+export const passwordWithUserData = (correlationId: string): AppError => {
+	return new AppError(
+		"VALIDATION_ERROR",
+		"La nueva contrasena no puede contener tu correo o tu nombre.",
+		{ correlationId },
+	);
+};
+
 /** Credenciales invalidas: UNICO error generico del login (anti-enumeracion).
  * No distingue usuario inexistente de contrasena incorrecta. */
 export const invalidCredentials = (correlationId: string): AppError => {
 	return new AppError("UNAUTHORIZED", "Credenciales invalidas.", {
+		correlationId,
+	});
+};
+
+/**
+ * Cambio de email a un correo ya registrado: error GENERICO (no revela
+ * si el correo existe ni a quien pertenece). Incluye la carrera 23505.
+ */
+export const emailTaken = (correlationId: string): AppError => {
+	return new AppError("UPDATE_CONFLICT", "No se pudo completar el cambio.", {
 		correlationId,
 	});
 };
