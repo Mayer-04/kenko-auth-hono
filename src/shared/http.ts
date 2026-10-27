@@ -5,6 +5,10 @@ import { HttpStatus } from "./http-status.js";
 
 export type AppVariables = {
 	correlationId: string;
+	/** Fijado por `requireAuth` en rutas autenticadas. */
+	userId?: string;
+	/** Familia de refresh (`sid` del JWT). Ausente en tokens pre-`sid`. */
+	sessionFamilyId?: string;
 };
 
 export type AppContext = Context<{ Variables: AppVariables }>;
