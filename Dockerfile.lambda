@@ -1,0 +1,23 @@
+# Usa la imagen oficial del adaptador de Lambda para manejar el runtime.
+FROM public.ecr.aws/awsguru/aws-lambda-adapter:1.0.1 AS aws-lambda-adapter
+
+# Bun 1.4.4 = version verificada en dev (`bun --version`). Fijada para
+# paridad dev/Lambda; multi-arch (incluye linux/arm64 para Graviton).
+FROM oven/bun:1.4.4-debian
+
+# El adapter traduce cada invocacion (Scheduler) a HTTP local en PORT.
+COPY --from=aws-lambda-adapter /lambda-adapter /opt/extensions/lambda-adapter
+ENV PORT=8080
+
+# Directorio de codigo de la funcion (LAMBDA_TASK_ROOT).
+WORKDIR /var/task
+
+# Dependencias primero (capa cacheable): solo prod, lockfile congelado.
+COPY package.json bun.lock ./
+RUN bun install --production --frozen-lockfile
+
+# Solo el codigo que Lambda necesita. Nada de tests, terraform, docs ni .env
+# (ver .dockerignore): los secretos llegan por variables de entorno.
+COPY src ./src
+
+CMD ["bun", "src/relay-handler.ts"]
