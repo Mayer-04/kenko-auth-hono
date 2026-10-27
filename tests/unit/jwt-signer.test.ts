@@ -59,6 +59,20 @@ describe("makeJwtSigner", () => {
 		await expect(signer.verifyAccessToken(foreign)).rejects.toThrow();
 	});
 
+	it("incluye sid cuando se provee familia y lo omite si no", async () => {
+		const signer = makeJwtSigner(OPTIONS);
+		const withFamily = await signer.signAccessToken({
+			...ARGS,
+			sessionFamilyId: "family-id-1",
+		});
+		expect((await signer.verifyAccessToken(withFamily)).sid).toBe(
+			"family-id-1",
+		);
+
+		const legacy = await signer.signAccessToken(ARGS);
+		expect((await signer.verifyAccessToken(legacy)).sid).toBeUndefined();
+	});
+
 	it("rechaza alg distinto de HS256 (incluido none)", async () => {
 		const signer = makeJwtSigner(OPTIONS);
 		const key = new TextEncoder().encode(OPTIONS.secret);

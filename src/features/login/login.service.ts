@@ -50,17 +50,18 @@ export const makeLoginService = (deps: LoginDeps): LoginService => {
 		const issuedAtSeconds = Math.floor(now.getTime() / 1000);
 		const expiresAtSeconds = issuedAtSeconds + deps.accessTtlSeconds;
 		const jwtId = deps.newJwtId();
+		const sessionId = deps.newSessionId();
+		const familyId = deps.newFamilyId();
 
 		const accessToken = await deps.accessTokens.signAccessToken({
 			subject: user.id,
 			tokenId: jwtId,
 			issuedAtSeconds,
 			expiresAtSeconds,
+			sessionFamilyId: familyId,
 		});
 
 		const refreshToken = deps.refreshTokens.generate();
-		const sessionId = deps.newSessionId();
-		const familyId = deps.newFamilyId();
 		const expiresAt = new Date(
 			now.getTime() + deps.refreshTtlDays * MS_PER_DAY,
 		).toISOString();
@@ -145,6 +146,7 @@ export const makeRefreshSessionService = (
 			tokenId: deps.newJwtId(),
 			issuedAtSeconds,
 			expiresAtSeconds: issuedAtSeconds + deps.accessTtlSeconds,
+			sessionFamilyId: session.familyId,
 		});
 
 		const refreshToken = deps.refreshTokens.generate();

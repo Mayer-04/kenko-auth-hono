@@ -45,8 +45,11 @@ export const makeJwtSigner = (
 			tokenId,
 			issuedAtSeconds,
 			expiresAtSeconds,
+			sessionFamilyId,
 		}): Promise<string> {
-			return new SignJWT({})
+			return new SignJWT(
+				sessionFamilyId !== undefined ? { sid: sessionFamilyId } : {},
+			)
 				.setProtectedHeader({ alg: "HS256", typ: "JWT", kid: options.kid })
 				.setSubject(subject)
 				.setIssuer(options.issuer)
@@ -79,6 +82,7 @@ export const makeJwtSigner = (
 				exp: payload.exp,
 				iat: payload.iat,
 				jti: payload.jti,
+				...(typeof payload.sid === "string" ? { sid: payload.sid } : {}),
 			};
 		},
 	};

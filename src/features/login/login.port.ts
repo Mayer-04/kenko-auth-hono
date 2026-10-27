@@ -79,6 +79,11 @@ export type AccessTokenSigner = {
 		tokenId: string;
 		issuedAtSeconds: number;
 		expiresAtSeconds: number;
+		/**
+		 * Familia de refresh (`sid`). Los tokens emitidos antes de este
+		 * claim no lo traen: `requireAuth` deja `sessionFamilyId` ausente.
+		 */
+		sessionFamilyId?: string;
 	}): Promise<string>;
 };
 
@@ -95,6 +100,7 @@ export type AccessTokenVerifier = {
 		exp: number;
 		iat: number;
 		jti: string;
+		sid?: string;
 	}>;
 };
 
