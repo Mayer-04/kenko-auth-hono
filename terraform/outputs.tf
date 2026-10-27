@@ -1,30 +1,11 @@
-output "endpoint" {
-  description = "Host de conexion RDS (sin puerto ni credenciales)."
-  value       = aws_db_instance.auth.address
+output "ecr_repository_url" {
+  value = aws_ecr_repository.relay.repository_url
 }
 
-output "port" {
-  description = "Puerto PostgreSQL."
-  value       = aws_db_instance.auth.port
+output "lambda_function_name" {
+  value = aws_lambda_function.relay.function_name
 }
 
-output "identifier" {
-  description = "Identificador de la instancia."
-  value       = aws_db_instance.auth.id
-}
-
-output "database_name" {
-  description = "Base inicial creada."
-  value       = aws_db_instance.auth.db_name
-}
-
-output "master_user_secret_arn" {
-  description = "ARN del secreto Secrets Manager con la credencial maestra. Leer user/password desde ahi; nunca versionarlos."
-  value       = try(aws_db_instance.auth.master_user_secret[0].secret_arn, null)
-  sensitive   = true
-}
-
-output "security_group_id" {
-  description = "SG de RDS (para autorizar las SGs de app)."
-  value       = aws_security_group.rds.id
+output "lambda_role_name" {
+  value = aws_iam_role.relay.name
 }

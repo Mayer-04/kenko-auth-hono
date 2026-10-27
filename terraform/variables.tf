@@ -1,97 +1,88 @@
 variable "aws_region" {
-  description = "Region AWS (verificada: us-east-1 para dev)."
+  description = "Región de todos los recursos."
   type        = string
   default     = "us-east-1"
 }
 
-variable "identifier" {
-  description = "Identificador RDS solicitado."
-  type        = string
-  default     = "kenko-auth"
+variable "project" {
+  type    = string
+  default = "kenko"
 }
 
-variable "database_name" {
-  description = "Base inicial. RDS Postgres no admite guiones: se usa kenko_auth."
-  type        = string
-  default     = "kenko_auth"
+variable "service" {
+  type    = string
+  default = "auth"
 }
 
-variable "master_username" {
-  description = "Usuario maestro solicitado (valor propuesto en la especificacion)."
+variable "environment" {
+  description = "Sufijo de nombres y etiquetas (dev). No es el ENVIRONMENT del contenedor."
   type        = string
-  default     = "mayer"
+  default     = "dev"
 }
 
-variable "engine_version" {
-  description = "Version PG verificada como ordenable para db.t4g.micro en us-east-1."
+variable "app_environment" {
+  description = "ENVIRONMENT del contenedor. development|test|production (schema de env)."
   type        = string
-  default     = "18.6"
+  default     = "development"
 }
 
-variable "instance_class" {
-  description = "Clase solicitada para dev."
+variable "event_bus_name" {
+  description = "Bus EventBridge existente (lo crean/consumen otros equipos)."
   type        = string
-  default     = "db.t4g.micro"
+  default     = "kenko-dev-bus"
 }
 
-variable "allocated_storage" {
-  description = "Almacenamiento inicial en GiB."
+variable "image_tag" {
+  description = "Tag de la imagen en ECR. Immutable: cada deploy usa un tag nuevo."
+  type        = string
+  default     = "0.1.1"
+}
+
+variable "lambda_memory_mb" {
+  type    = number
+  default = 512
+}
+
+variable "lambda_timeout_seconds" {
+  type    = number
+  default = 30
+}
+
+variable "lambda_reserved_concurrency" {
+  description = "1: una sola pasada del relay a la vez (SKIP LOCKED ya evita dobles)."
   type        = number
-  default     = 20
+  default     = 1
 }
 
-variable "port" {
-  description = "Puerto PostgreSQL."
+variable "log_retention_days" {
+  description = "Retención corta en dev: los logs eternos cuestan."
   type        = number
-  default     = 5432
+  default     = 14
 }
 
-variable "vpc_id" {
-  description = "VPC verificada. Solo existe la default en us-east-1; para prod usar VPC dedicada."
+variable "postgres_url" {
+  description = "Conexión a la base del servicio. Sin RDS: URL local (no conecta desde AWS)."
   type        = string
+  sensitive   = true
 }
 
-variable "subnet_ids" {
-  description = "Subredes del grupo RDS (minimo 2 en AZ distintas)."
-  type        = list(string)
+variable "jwt_secret" {
+  description = "Exigido por el schema de env aunque el relay no lo use."
+  type        = string
+  sensitive   = true
 }
 
-variable "allowed_ingress_security_group_ids" {
-  description = "SGs de las apps que pueden llegar a 5432 (minimo privilegio). Vacio = sin ingreso."
-  type        = list(string)
-  default     = []
+variable "portal_base_url" {
+  type    = string
+  default = "http://localhost:5500"
 }
 
-variable "allowed_ingress_cidr_blocks" {
-  description = "CIDRs permitidos a 5432. Preferir SGs; evitar 0.0.0.0/0."
-  type        = list(string)
-  default     = []
+variable "jwt_issuer" {
+  type    = string
+  default = "kenko.auth"
 }
 
-variable "backup_retention_period" {
-  description = "Dias de backups automaticos (habilitadas para dev)."
-  type        = number
-  default     = 7
-}
-
-variable "deletion_protection" {
-  description = "Dev: false para permitir limpieza. Prod: true."
-  type        = bool
-  default     = false
-}
-
-variable "multi_az" {
-  description = "Dev: false por costo. Prod: evaluar true."
-  type        = bool
-  default     = false
-}
-
-variable "tags" {
-  description = "Etiquetas comunes."
-  type        = map(string)
-  default = {
-    Project     = "kenko"
-    Service     = "auth"
-    Environment = "dev"
-  }
+variable "jwt_audience" {
+  type    = string
+  default = "kenko-api"
 }
