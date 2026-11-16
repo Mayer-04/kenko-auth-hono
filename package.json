@@ -19,7 +19,7 @@
 		"@aws-sdk/client-eventbridge": "3.1166.0",
 		"argon2": "0.45.2",
 		"drizzle-orm": "0.45.4",
-		"hono": "4.13.17",
+		"hono": "4.13.18",
 		"jose": "6.2.17",
 		"uuid": "14.0.3",
 		"winston": "3.19.0",
