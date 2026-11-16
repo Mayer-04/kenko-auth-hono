@@ -14,6 +14,7 @@ const app = buildApp({
 	logoutService: container.logoutService,
 	changePasswordService: container.changePasswordService,
 	changeEmailService: container.changeEmailService,
+	meReader: container.meReader,
 	forgotService: container.forgotService,
 	resetService: container.resetService,
 	rateLimiter: container.rateLimiter,
@@ -22,6 +23,7 @@ const app = buildApp({
 	routeLimits: container.routeLimits,
 	loginRouteLimits: container.loginRouteLimits,
 	accountRouteLimits: container.accountRouteLimits,
+	allowedOrigins: container.allowedOrigins,
 });
 
 const port = container.env.PORT;

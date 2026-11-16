@@ -11,9 +11,16 @@ export type ChangePasswordInput = {
 	newPassword: string;
 };
 
-/** Resultado: 204 sin cuerpo. Solo IDs, sin PII ni secretos. */
+/** Resultado: 200 `{data:{}}`. Solo IDs, sin PII ni secretos. */
 export type ChangePasswordResult = {
 	correlationId: string;
+};
+
+/** Resultado de `GET /auth/me`: identidad minima para la UI (sin PII sensible). */
+export type MeResult = {
+	userId: string;
+	firstName: string;
+	email: string;
 };
 
 /** Entrada de cambio de email. La identidad sale del JWT, no del body. */
@@ -25,6 +32,8 @@ export type ChangeEmailInput = {
 /** Resultado: 200 con cuerpo vacio. Solo IDs, sin PII. */
 export type ChangeEmailResult = {
 	correlationId: string;
+	/** `false` cuando el correo ya era el mismo (idempotente, sin escritura). */
+	changed: boolean;
 };
 
 /** Contenido de `Detail` del evento `EmailChanged` (contrato v1). */

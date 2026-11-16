@@ -93,7 +93,7 @@ describe("makeChangePasswordService", () => {
 		for (const err of errs) {
 			expect(err).toBeInstanceOf(AppError);
 			expect((err as AppError).code).toBe("UNAUTHORIZED");
-			expect((err as AppError).message).toBe("Contrasena actual incorrecta.");
+			expect((err as AppError).message).toBe("Contraseña actual incorrecta.");
 		}
 		expect(wrong.store.calls).toHaveLength(0);
 		expect(missing.store.calls).toHaveLength(0);
@@ -223,7 +223,7 @@ describe("makeChangeEmailService", () => {
 			"user-id-1",
 			"corr-1",
 		);
-		expect(res).toEqual({ correlationId: "corr-1" });
+		expect(res).toEqual({ correlationId: "corr-1", changed: true });
 		expect(updated).toEqual([
 			{
 				userId: "user-id-1",
@@ -244,7 +244,7 @@ describe("makeChangeEmailService", () => {
 			"user-id-1",
 			"corr-1",
 		);
-		expect(res).toEqual({ correlationId: "corr-1" });
+		expect(res).toEqual({ correlationId: "corr-1", changed: false });
 		expect(updated).toHaveLength(0);
 	});
 
@@ -259,7 +259,7 @@ describe("makeChangeEmailService", () => {
 			).catch((e: unknown) => e);
 			expect(err).toBeInstanceOf(AppError);
 			expect((err as AppError).code).toBe("UNAUTHORIZED");
-			expect((err as AppError).message).toBe("Contrasena actual incorrecta.");
+			expect((err as AppError).message).toBe("Contraseña actual incorrecta.");
 			expect(updated).toHaveLength(0);
 		}
 	});

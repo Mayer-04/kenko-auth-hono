@@ -1,8 +1,9 @@
 import type winston from "winston";
-
+import { resolveCorsOrigins } from "./config/cors.js";
 import { loadEnv, resolveDatabase } from "./config/env.js";
 import { initLogger } from "./config/logger.js";
 import type {
+	AccountReader,
 	AccountRouteLimits,
 	ChangePasswordService,
 	EmailChangeService,
@@ -70,6 +71,7 @@ export type Container = {
 	logoutService: LogoutService;
 	changePasswordService: ChangePasswordService;
 	changeEmailService: EmailChangeService;
+	meReader: AccountReader;
 	forgotService: ForgotService;
 	resetService: ResetService;
 	rateLimiter: RateLimiter;
@@ -78,6 +80,7 @@ export type Container = {
 	loginRouteLimits: LoginRouteLimits;
 	accountRouteLimits: AccountRouteLimits;
 	eventBusName: string;
+	allowedOrigins: string[];
 };
 
 export const buildContainer = (): Container => {
@@ -95,18 +98,7 @@ export const buildContainer = (): Container => {
 	const hasher = makeArgon2Hasher();
 	void createEventBridgeClient(env.AWS_REGION);
 
-	const registerService = makeRegisterService({
-		users,
-		hasher,
-		newUserId: () => newId(),
-		newEventId: () => newId(),
-		nowIso: () => new Date().toISOString(),
-	});
-
-	const tokenTool = makeResetTokenTool(PasswordResetLimits.TOKEN_RANDOM_BYTES);
-	const passwordResets = makePasswordResetRepository(dbClient);
-
-	/** Adaptador Winston -> puerto minimo del feature (solo IDs, sin PII). */
+	/** Adaptador Winston -> puerto minimo de los features (solo IDs, sin PII). */
 	const resetLogger: PasswordResetLogger = {
 		info: (event, ids) => {
 			logger.info(event, ids);
@@ -115,6 +107,18 @@ export const buildContainer = (): Container => {
 			logger.warn(event, ids);
 		},
 	};
+
+	const registerService = makeRegisterService({
+		users,
+		hasher,
+		newUserId: () => newId(),
+		newEventId: () => newId(),
+		nowIso: () => new Date().toISOString(),
+		logger: resetLogger,
+	});
+
+	const tokenTool = makeResetTokenTool(PasswordResetLimits.TOKEN_RANDOM_BYTES);
+	const passwordResets = makePasswordResetRepository(dbClient);
 
 	const forgotService = makeForgotPasswordService({
 		users: passwordResets,
@@ -234,6 +238,7 @@ export const buildContainer = (): Container => {
 		logoutService,
 		changePasswordService,
 		changeEmailService,
+		meReader: users,
 		forgotService,
 		resetService,
 		rateLimiter,
@@ -242,5 +247,6 @@ export const buildContainer = (): Container => {
 		loginRouteLimits,
 		accountRouteLimits,
 		eventBusName: resolveBusName(env.EVENT_BUS_NAME),
+		allowedOrigins: resolveCorsOrigins(env.CORS_ORIGINS),
 	};
 };

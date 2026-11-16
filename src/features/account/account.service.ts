@@ -152,7 +152,7 @@ export const makeChangeEmailService = (
 				userId,
 				correlationId,
 			});
-			return { correlationId };
+			return { correlationId, changed: false };
 		}
 
 		const taken = await deps.users.findByEmail(input.newEmail);
@@ -203,6 +203,6 @@ export const makeChangeEmailService = (
 
 		deps.logger.info(LogEvent.EMAIL_CHANGED, { userId, correlationId });
 
-		return { correlationId };
+		return { correlationId, changed: true };
 	};
 };

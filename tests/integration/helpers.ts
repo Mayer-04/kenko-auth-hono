@@ -128,6 +128,7 @@ export const buildTestApp = (
 		newUserId: () => newId(),
 		newEventId: () => newId(),
 		nowIso: () => new Date().toISOString(),
+		logger,
 	});
 
 	const forgotService = makeForgotPasswordService({
@@ -217,6 +218,7 @@ export const buildTestApp = (
 		logoutService,
 		changePasswordService,
 		changeEmailService,
+		meReader: users,
 		forgotService,
 		resetService,
 		rateLimiter: makeInMemoryRateLimiter({
@@ -227,6 +229,7 @@ export const buildTestApp = (
 		routeLimits: overrides.limits ?? TEST_ROUTE_LIMITS,
 		loginRouteLimits: overrides.loginLimits ?? TEST_LOGIN_ROUTE_LIMITS,
 		accountRouteLimits: overrides.accountLimits ?? TEST_ACCOUNT_ROUTE_LIMITS,
+		allowedOrigins: ["http://localhost:3000"],
 	};
 
 	return { app: buildApp(deps), captured: entries };

@@ -109,7 +109,7 @@ describe("POST /auth/password/change", () => {
 			body: JSON.stringify(body),
 		});
 
-	it("204: cambia el hash, revoca otras familias y conserva la actual", async () => {
+	it("200: cambia el hash, revoca otras familias y conserva la actual", async () => {
 		const user = await registerUser();
 		const first = await login(user.documentNumber, user.password);
 		// Segunda familia (otro dispositivo).
@@ -119,7 +119,7 @@ describe("POST /auth/password/change", () => {
 			currentPassword: user.password,
 			newPassword: "nueva-clave-00",
 		});
-		expect(res.status).toBe(204);
+		expect(res.status).toBe(200);
 		expect(res.headers.get("Cache-Control")).toBe("no-store");
 
 		// Vieja ya no entra; nueva si.
@@ -180,7 +180,7 @@ describe("POST /auth/password/change", () => {
 			currentPassword: user.password,
 			newPassword: "otra-clave-11",
 		});
-		expect(changed.status).toBe(204);
+		expect(changed.status).toBe(200);
 	});
 
 	it("sin token o con token invalido: 401 generico", async () => {
@@ -228,7 +228,7 @@ describe("POST /auth/password/change", () => {
 			error: { code: string; message: string };
 		};
 		expect(wrongJson.error.code).toBe("UNAUTHORIZED");
-		expect(wrongJson.error.message).toBe("Contrasena actual incorrecta.");
+		expect(wrongJson.error.message).toBe("Contraseña actual incorrecta.");
 
 		const same = await change(tokens.data.accessToken, {
 			currentPassword: user.password,
@@ -412,7 +412,7 @@ describe("POST /auth/email/change", () => {
 		});
 		expect(res.status).toBe(200);
 		expect(res.headers.get("Cache-Control")).toBe("no-store");
-		expect(await res.json()).toEqual({ data: {} });
+		expect(await res.json()).toEqual({ data: { changed: true } });
 
 		const db = drizzle({ client: sql });
 		const rows = await db

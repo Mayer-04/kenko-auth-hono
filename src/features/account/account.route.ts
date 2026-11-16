@@ -4,23 +4,23 @@ import { Hono } from "hono";
 import {
 	AppError,
 	internalError,
+	invalidCredentials,
 	rateLimitedError,
 } from "../../shared/errors.js";
-import {
-	FORWARDED_FOR_HEADER,
-	RETRY_AFTER_HEADER,
-} from "../../shared/headers.js";
+import { FORWARDED_FOR_HEADER } from "../../shared/headers.js";
 import { type AppVariables, ok } from "../../shared/http.js";
 import { LogEvent } from "../../shared/log-events.js";
 import { noStoreMiddleware } from "../../shared/middleware/no-store.js";
 import {
 	clientIp,
 	firstRateLimitFailure,
+	setRateLimitHeaders,
 } from "../../shared/ratelimit/rate-limit-http.js";
 import type { RateLimiter } from "../../shared/ratelimit/ratelimit.port.js";
 import { validationErrorHook } from "../../shared/validation.js";
 import type {
 	AccountLogger,
+	AccountReader,
 	ChangePasswordService,
 	EmailChangeService,
 } from "./account.port.js";
@@ -29,12 +29,12 @@ import { ChangeEmailSchema, ChangePasswordSchema } from "./account.schema.js";
 /**
  * `POST /auth/password/change` (autenticado con `requireAuth`, montado en `app.ts`).
  *
- * - 204 sin cuerpo. `Cache-Control: no-store`.
+ * - 200 `{data:{}}` (sobre comun). `Cache-Control: no-store`.
  * - Rate limiting por IP y bloqueo temporal por usuario (5 intentos / 10 min):
- *   al superarlo, 429 con `Retry-After` (aviso al usuario). El contador cubre
- *   intentos totales, no solo fallidos.
+ *   al superarlo, 429 con `Retry-After` + `RateLimit-*` (aviso al usuario).
+ *   El contador cubre intentos totales, no solo fallidos.
  * - `userId` y familia salen del JWT, nunca del body.
- * - Nunca se registra contrasena ni PII; solo IDs. No publica eventos.
+ * - Nunca se registra contraseña ni PII; solo IDs. No publica eventos.
  */
 export type AccountRouteLimits = {
 	changeIpMax: number;
@@ -84,9 +84,10 @@ export const makeChangePasswordRoute = (
 			if (failure !== null) {
 				deps.logger.warn(LogEvent.ACCOUNT_RATE_LIMITED, {
 					scope: failure.scope,
+					limit: String(failure.limit),
 					correlationId,
 				});
-				c.header(RETRY_AFTER_HEADER, String(failure.retryAfterSeconds));
+				setRateLimitHeaders((name, value) => c.header(name, value), failure);
 				throw rateLimitedError(correlationId);
 			}
 
@@ -105,7 +106,7 @@ export const makeChangePasswordRoute = (
 					throw internalError(correlationId, err);
 				});
 
-			return c.body(null, 204);
+			return ok(c, {});
 		},
 	);
 
@@ -122,11 +123,11 @@ export type ChangeEmailRouteDeps = {
 /**
  * `POST /auth/email/change` (autenticado con `requireAuth`, montado en `app.ts`).
  *
- * - 200 `{data:{}}` inmediato: el cambio es directo, sin pendientes ni
- *   tokens. Mismo correo (normalizado): 200 idempotente sin escribir.
+ * - 200 `{data:{changed}}` inmediato: `changed:false` si el correo ya era el
+ *   mismo (idempotente, sin escribir ni evento); `changed:true` si se actualizo.
  * - Correo ocupado: 409 generico, sin revelar nada.
  * - Rate limiting por IP y bloqueo temporal por usuario (igual que
- *   contrasena, claves propias `changeemail:*`).
+ *   contraseña, claves propias `changeemail:*`) con `Retry-After` + `RateLimit-*`.
  * - `userId` sale del JWT, nunca del body. Publica `EmailChanged` via
  *   outbox en la misma transaccion. `Cache-Control: no-store`.
  * - Nunca se registran emails ni secretos; solo IDs.
@@ -164,13 +165,14 @@ export const makeChangeEmailRoute = (
 			if (failure !== null) {
 				deps.logger.warn(LogEvent.ACCOUNT_RATE_LIMITED, {
 					scope: failure.scope,
+					limit: String(failure.limit),
 					correlationId,
 				});
-				c.header(RETRY_AFTER_HEADER, String(failure.retryAfterSeconds));
+				setRateLimitHeaders((name, value) => c.header(name, value), failure);
 				throw rateLimitedError(correlationId);
 			}
 
-			await deps
+			const result = await deps
 				.changeEmail(
 					{
 						newEmail: body.newEmail,
@@ -184,9 +186,51 @@ export const makeChangeEmailRoute = (
 					throw internalError(correlationId, err);
 				});
 
-			return ok(c, {});
+			return ok(c, { changed: result.changed });
 		},
 	);
+
+	return route;
+};
+
+export type MeRouteDeps = {
+	users: AccountReader;
+	logger: AccountLogger;
+};
+
+/**
+ * `GET /auth/me` (autenticado con `requireAuth`, montado en `app.ts`).
+ *
+ * - Devuelve la identidad minima para la UI sin invadir `Profile`:
+ *   `{data:{userId, firstName, email}}` (email propio, ya autenticado).
+ * - `Cache-Control: no-store`. 401 generico si el usuario ya no existe.
+ * - Logs: solo el fallo (`me.failed`, warn con `userId`+`correlationId`).
+ *   El exito no se loguea aqui (el request logger ya deja `http.request 200`).
+ * - El `userId` sale del JWT (`sub`); `Profile` sigue siendo dueño del perfil
+ *   completo. El frontend NO debe decodificar el JWT para esto: usa este endpoint.
+ */
+export const makeMeRoute = (
+	deps: MeRouteDeps,
+): Hono<{ Variables: AppVariables }> => {
+	const route = new Hono<{ Variables: AppVariables }>();
+
+	route.get("/auth/me", noStoreMiddleware, async (c) => {
+		const correlationId = c.get("correlationId");
+		const userId = c.get("userId");
+		if (userId === undefined) throw internalError(correlationId);
+
+		const account = await deps.users.findAccountById(userId).catch(() => null);
+		if (account === null) {
+			deps.logger.warn(LogEvent.ME_FAILED, { userId, correlationId });
+			throw invalidCredentials(correlationId);
+		}
+
+		return ok(c, {
+			userId: account.id,
+			firstName: account.firstName,
+			email: account.email,
+		});
+	});
 
 	return route;
 };

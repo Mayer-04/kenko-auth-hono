@@ -14,7 +14,7 @@ import { PasswordFieldSchema } from "../register/register.schema.js";
  *   sin datos del usuario) viven en el servicio, no aqui.
  */
 export const ChangePasswordSchema = z.object({
-	currentPassword: z.string().min(1, "La contrasena actual es obligatoria."),
+	currentPassword: z.string().min(1, "La contraseña actual es obligatoria."),
 	newPassword: PasswordFieldSchema,
 });
 
@@ -31,5 +31,5 @@ export const ChangeEmailSchema = z.object({
 		(value) => (typeof value === "string" ? normalizeEmail(value) : value),
 		z.email().max(RegisterLimits.EMAIL_MAX_LENGTH),
 	),
-	currentPassword: z.string().min(1, "La contrasena actual es obligatoria."),
+	currentPassword: z.string().min(1, "La contraseña actual es obligatoria."),
 });
