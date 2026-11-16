@@ -17,3 +17,13 @@ export const isUuid = (value: string): boolean => {
 		value,
 	);
 };
+
+/**
+ * Resuelve el `correlationId` para respuesta/logs: reutiliza el header solo
+ * si es UUID valido; si no, genera v7. Unifica `correlationMiddleware`,
+ * `POST /auth/register` y el `onError` de `bodyLimit` (antes duplicaban el
+ * mismo `isUuid ? header : newId()` en tres sitios).
+ */
+export const resolveCorrelationId = (header: string | undefined): string => {
+	return header !== undefined && isUuid(header) ? header : newId();
+};

@@ -28,19 +28,19 @@ export const ForgotPasswordSchema = z.object({
 	),
 	documentNumber: z.preprocess(
 		(v) => (typeof v === "string" ? normalizeDocumentNumber(v) : v),
-		z.string().regex(documentNumberRegex(), "Numero de documento invalido."),
+		z.string().regex(documentNumberRegex(), "Número de documento inválido."),
 	),
 });
 
 export const ResetPasswordSchema = z
 	.object({
-		token: z.string().min(1, "Token invalido."),
+		token: z.string().min(1, "Token inválido."),
 		password: PasswordFieldSchema,
 		confirmPassword: z.string(),
 	})
 	.refine((v) => v.password === v.confirmPassword, {
 		path: ["confirmPassword"],
-		message: "Las contrasenas no coinciden.",
+		message: "Las contraseñas no coinciden.",
 	});
 
 export type ForgotPasswordRequest = z.infer<typeof ForgotPasswordSchema>;

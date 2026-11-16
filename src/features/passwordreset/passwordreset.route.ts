@@ -6,16 +6,14 @@ import {
 	internalError,
 	rateLimitedError,
 } from "../../shared/errors.js";
-import {
-	FORWARDED_FOR_HEADER,
-	RETRY_AFTER_HEADER,
-} from "../../shared/headers.js";
+import { FORWARDED_FOR_HEADER } from "../../shared/headers.js";
 import { type AppVariables, ok } from "../../shared/http.js";
 import { LogEvent } from "../../shared/log-events.js";
 import { noStoreMiddleware } from "../../shared/middleware/no-store.js";
 import {
 	clientIp,
 	firstRateLimitFailure,
+	setRateLimitHeaders,
 } from "../../shared/ratelimit/rate-limit-http.js";
 import type { RateLimiter } from "../../shared/ratelimit/ratelimit.port.js";
 import { validationErrorHook } from "../../shared/validation.js";
@@ -104,9 +102,10 @@ export const makePasswordResetRoute = (
 			if (failure !== null) {
 				deps.logger.warn(LogEvent.PASSWORD_RESET_RATE_LIMITED, {
 					scope: failure.scope,
+					limit: String(failure.limit),
 					correlationId,
 				});
-				c.header(RETRY_AFTER_HEADER, String(failure.retryAfterSeconds));
+				setRateLimitHeaders((name, value) => c.header(name, value), failure);
 				throw rateLimitedError(correlationId);
 			}
 
@@ -148,9 +147,10 @@ export const makePasswordResetRoute = (
 			if (failure !== null) {
 				deps.logger.warn(LogEvent.PASSWORD_RESET_RATE_LIMITED, {
 					scope: failure.scope,
+					limit: String(failure.limit),
 					correlationId,
 				});
-				c.header(RETRY_AFTER_HEADER, String(failure.retryAfterSeconds));
+				setRateLimitHeaders((name, value) => c.header(name, value), failure);
 				throw rateLimitedError(correlationId);
 			}
 

@@ -435,7 +435,7 @@ describe("password reset (integracion)", () => {
 			expect(status).toBe(400);
 			expect(body.error.code).toBe("PASSWORD_RESET_INVALID");
 			expect(body.error.message).toBe(
-				"El enlace de restablecimiento no es valido o ha expirado.",
+				"El enlace de restablecimiento no es válido o ha expirado.",
 			);
 		}
 	});

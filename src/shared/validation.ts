@@ -27,14 +27,29 @@ z.config(z.locales.es());
  * Se pasa como tercer argumento de cada `zValidator(...)`.
  */
 
+type ValidationIssue = {
+	message?: unknown;
+	path?: unknown;
+};
+
 type ValidationResult = {
 	success: boolean;
 	error?: {
-		issues?: Array<{ message?: unknown }>;
+		issues?: Array<ValidationIssue>;
 	};
 };
 
 const FALLBACK_MESSAGE = "Datos inválidos.";
+
+const fieldOf = (issue: ValidationIssue): string | undefined => {
+	const path = (issue as { path?: unknown }).path;
+	if (Array.isArray(path) && path.length > 0) {
+		const first = path[0];
+		if (typeof first === "string" && first !== "") return first;
+		if (typeof first === "number") return String(first);
+	}
+	return undefined;
+};
 
 const firstMessage = (result: ValidationResult): string => {
 	const issues = result.error?.issues ?? [];
@@ -44,6 +59,23 @@ const firstMessage = (result: ValidationResult): string => {
 		}
 	}
 	return FALLBACK_MESSAGE;
+};
+
+const issueDetails = (
+	result: ValidationResult,
+): Array<{ field?: string; message: string }> => {
+	const issues = result.error?.issues ?? [];
+	return issues
+		.filter(
+			(issue): issue is ValidationIssue =>
+				typeof issue.message === "string" && issue.message !== "",
+		)
+		.map((issue) => {
+			const field = fieldOf(issue);
+			return field === undefined
+				? { message: issue.message as string }
+				: { field, message: issue.message as string };
+		});
 };
 
 export const validationErrorHook = (
@@ -61,6 +93,7 @@ export const validationErrorHook = (
 				code: "VALIDATION_ERROR",
 				message: firstMessage(result),
 				correlationId,
+				details: issueDetails(result),
 			},
 		},
 		HttpStatus.BAD_REQUEST,

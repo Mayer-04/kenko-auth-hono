@@ -4,7 +4,7 @@ import { validationErrorHook } from "../../src/shared/validation.js";
 
 /**
  * El hook traduce fallos de Zod al sobre comun de errores
- * (`{error:{code,message,correlationId}}`, 400) en vez del formato
+ * (`{error:{code,message,correlationId,details}}`, 400) en vez del formato
  * crudo del validador (`{"success":false,...}`).
  */
 const fakeContext = (correlationId: string) => {
@@ -38,8 +38,8 @@ describe("validationErrorHook", () => {
 				success: false,
 				error: {
 					issues: [
-						{ message: "Nombres es obligatorio." },
-						{ message: "Otro error que no debe salir." },
+						{ message: "Nombres es obligatorio.", path: ["firstName"] },
+						{ message: "Otro error que no debe salir.", path: ["lastName"] },
 					],
 				},
 			},
@@ -48,15 +48,40 @@ describe("validationErrorHook", () => {
 		expect(res).toBeInstanceOf(Response);
 		expect(res?.status).toBe(400);
 		const json = (await res?.json()) as {
-			error: { code: string; message: string; correlationId: string };
+			error: {
+				code: string;
+				message: string;
+				correlationId: string;
+				details: Array<{ field?: string; message: string }>;
+			};
 		};
 		expect(json).toEqual({
 			error: {
 				code: "VALIDATION_ERROR",
 				message: "Nombres es obligatorio.",
 				correlationId: "corr-2",
+				details: [
+					{ field: "firstName", message: "Nombres es obligatorio." },
+					{ field: "lastName", message: "Otro error que no debe salir." },
+				],
 			},
 		});
+	});
+
+	it("sin path: details sin campo pero con mensaje", async () => {
+		const res = validationErrorHook(
+			{
+				success: false,
+				error: { issues: [{ message: "Nombres es obligatorio." }] },
+			},
+			fakeContext("corr-4") as never,
+		);
+		const json = (await res?.json()) as {
+			error: { details: Array<{ field?: string; message: string }> };
+		};
+		expect(json.error.details).toEqual([
+			{ message: "Nombres es obligatorio." },
+		]);
 	});
 
 	it("sin issues: mensaje generico seguro", async () => {

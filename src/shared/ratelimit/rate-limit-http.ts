@@ -1,3 +1,9 @@
+import {
+	RATELIMIT_LIMIT_HEADER,
+	RATELIMIT_REMAINING_HEADER,
+	RATELIMIT_RESET_HEADER,
+	RETRY_AFTER_HEADER,
+} from "../headers.js";
 import type { RateLimiter } from "./ratelimit.port.js";
 
 /**
@@ -23,11 +29,15 @@ export type RateLimitCheck = {
 export const firstRateLimitFailure = (
 	limiter: RateLimiter,
 	checks: RateLimitCheck[],
-): { scope: string; retryAfterSeconds: number } | null => {
+): { scope: string; limit: number; retryAfterSeconds: number } | null => {
 	for (const check of checks) {
 		const hit = limiter.hit(check.key, check.limit, check.windowMs);
 		if (!hit.allowed) {
-			return { scope: check.scope, retryAfterSeconds: hit.retryAfterSeconds };
+			return {
+				scope: check.scope,
+				limit: check.limit,
+				retryAfterSeconds: hit.retryAfterSeconds,
+			};
 		}
 	}
 	return null;
@@ -38,4 +48,15 @@ export const clientIp = (forwardedFor: string | undefined): string => {
 	if (forwardedFor === undefined || forwardedFor === "") return UNKNOWN_CLIENT;
 	const first = forwardedFor.split(",")[0]?.trim();
 	return first === undefined || first === "" ? UNKNOWN_CLIENT : first;
+};
+
+/** Fija `Retry-After` + `RateLimit-*` (IETF) en un 429 para countdown exacto. */
+export const setRateLimitHeaders = (
+	header: (name: string, value: string) => void,
+	failure: { limit: number; retryAfterSeconds: number },
+): void => {
+	header(RETRY_AFTER_HEADER, String(failure.retryAfterSeconds));
+	header(RATELIMIT_LIMIT_HEADER, String(failure.limit));
+	header(RATELIMIT_REMAINING_HEADER, "0");
+	header(RATELIMIT_RESET_HEADER, String(failure.retryAfterSeconds));
 };

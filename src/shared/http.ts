@@ -17,7 +17,9 @@ export type AppContext = Context<{ Variables: AppVariables }>;
  * Formato de respuesta consistente.
  *
  * Exito: `{ "data": T }`.
- * Error: `{ "error": { "code", "message", "correlationId" } }`.
+ * Error: `{ "error": { "code", "message", "correlationId", details? } }`.
+ * `details` solo en `VALIDATION_ERROR` (array por campo, vacio si el error
+ * no es de un campo concreto) para que el frontend siempre pueda iterarlo.
  * Nunca se exponen detalles internos ni PII en `message`.
  */
 
@@ -43,10 +45,18 @@ export const errorHandler = (err: unknown, c: AppContext) => {
 	const correlationId = correlationIdOf(c);
 
 	if (err instanceof AppError) {
-		return c.json(
-			{ error: { code: err.code, message: err.message, correlationId } },
-			err.status as 400,
-		);
+		const base = { code: err.code, message: err.message, correlationId } as {
+			code: string;
+			message: string;
+			correlationId: string;
+			details?: Array<{ field?: string; message: string }>;
+		};
+		// Todo 400 comparte `details` con el hook de Zod (alli lleno, aqui
+		// vacio si el error nace en el servicio y no es de un campo concreto).
+		// 409/401/404 no llevan `details` (anti-enumeracion: no revelar campo).
+		const body =
+			err.code === "VALIDATION_ERROR" ? { ...base, details: [] } : base;
+		return c.json({ error: body }, err.status as 400);
 	}
 
 	// Zod/Hono validator ya responde 400 por su cuenta; esto cubre el resto.
@@ -54,7 +64,7 @@ export const errorHandler = (err: unknown, c: AppContext) => {
 		{
 			error: {
 				code: "INTERNAL_ERROR",
-				message: "Error interno. Intente de nuevo mas tarde.",
+				message: "Error interno. Intente de nuevo más tarde.",
 				correlationId,
 			},
 		},

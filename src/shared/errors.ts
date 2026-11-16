@@ -69,7 +69,7 @@ export const internalError = (
 ): AppError => {
 	return new AppError(
 		"INTERNAL_ERROR",
-		"Error interno. Intente de nuevo mas tarde.",
+		"Error interno. Intente de nuevo más tarde.",
 		{
 			correlationId,
 			cause,
@@ -84,7 +84,7 @@ export const internalError = (
 export const invalidResetToken = (correlationId: string): AppError => {
 	return new AppError(
 		"PASSWORD_RESET_INVALID",
-		"El enlace de restablecimiento no es valido o ha expirado.",
+		"El enlace de restablecimiento no es válido o ha expirado.",
 		{ correlationId },
 	);
 };
@@ -93,7 +93,7 @@ export const invalidResetToken = (correlationId: string): AppError => {
 export const reusedPassword = (correlationId: string): AppError => {
 	return new AppError(
 		"VALIDATION_ERROR",
-		"La contrasena no puede ser igual a la actual.",
+		"La contraseña no puede ser igual a la actual.",
 		{ correlationId },
 	);
 };
@@ -104,7 +104,7 @@ export const reusedPassword = (correlationId: string): AppError => {
  * autenticada por el JWT). Mismo codigo 401 que el login.
  */
 export const wrongCurrentPassword = (correlationId: string): AppError => {
-	return new AppError("UNAUTHORIZED", "Contrasena actual incorrecta.", {
+	return new AppError("UNAUTHORIZED", "Contraseña actual incorrecta.", {
 		correlationId,
 	});
 };
@@ -113,7 +113,7 @@ export const wrongCurrentPassword = (correlationId: string): AppError => {
 export const passwordWithUserData = (correlationId: string): AppError => {
 	return new AppError(
 		"VALIDATION_ERROR",
-		"La nueva contrasena no puede contener tu correo o tu nombre.",
+		"La nueva contraseña no puede contener tu correo o tu nombre.",
 		{ correlationId },
 	);
 };
@@ -121,7 +121,7 @@ export const passwordWithUserData = (correlationId: string): AppError => {
 /** Credenciales invalidas: UNICO error generico del login (anti-enumeracion).
  * No distingue usuario inexistente de contrasena incorrecta. */
 export const invalidCredentials = (correlationId: string): AppError => {
-	return new AppError("UNAUTHORIZED", "Credenciales invalidas.", {
+	return new AppError("UNAUTHORIZED", "Credenciales inválidas.", {
 		correlationId,
 	});
 };
@@ -140,7 +140,7 @@ export const emailTaken = (correlationId: string): AppError => {
 export const rateLimitedError = (correlationId: string): AppError => {
 	return new AppError(
 		"RATE_LIMITED",
-		"Demasiadas solicitudes. Intente de nuevo mas tarde.",
+		"Demasiadas solicitudes. Intente de nuevo más tarde.",
 		{ correlationId },
 	);
 };

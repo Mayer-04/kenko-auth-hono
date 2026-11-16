@@ -266,7 +266,7 @@ describe("makeResetPasswordService", () => {
 		expect(err).toBeInstanceOf(AppError);
 		expect((err as AppError).code).toBe("PASSWORD_RESET_INVALID");
 		expect((err as AppError).message).toBe(
-			"El enlace de restablecimiento no es valido o ha expirado.",
+			"El enlace de restablecimiento no es válido o ha expirado.",
 		);
 	});
 
