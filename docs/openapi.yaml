@@ -1,11 +1,14 @@
 openapi: 3.1.0
 info:
   title: Kenko Auth API
-  version: 0.4.0
+  version: 0.5.0
   description: >-
     Microservicio Authentication de Kenko. Ningun flujo publica eventos
     desde el login (refresh y logout tampoco); el registro y la recuperacion
-    publican via outbox + EventBridge.
+    publican via outbox + EventBridge. v0.5.0: `details` por campo en 400,
+    `maskedEmail` en registro, `changed` en cambio de email, `200` en cambio
+    de contraseña (antes 204), `GET /auth/me`, cookies httpOnly y headers
+    `RateLimit-*` en 429. Errores por `code` estable (mensajes con tildes).
 servers:
   - url: http://localhost:{port}
     variables:
@@ -38,11 +41,15 @@ paths:
                 properties:
                   data:
                     type: object
-                    required: [userId]
+                    required: [userId, maskedEmail]
                     properties:
                       userId:
                         type: string
                         format: uuid
+                      maskedEmail:
+                        type: string
+                        description: Email enmascarado (m***@dominio) para confirmar en UI sin exponer PII.
+                        example: m***@example.com
         "400":
           $ref: "#/components/responses/ValidationError"
         "409":
@@ -58,9 +65,12 @@ paths:
       summary: Iniciar sesion
       description: >-
         Valida las credenciales por documento y devuelve un access token JWT
-        (HS256, 15 minutos) y un refresh token opaco (7 dias). Persiste la
-        primera sesion de una familia nueva. Responde siempre con
-        `Cache-Control: no-store`. No publica ningun evento.
+        (HS256, 15 minutos, claims sub/sid/iss/aud/exp/iat/jti) y un refresh
+        token opaco (7 dias). Persiste la primera sesion de una familia nueva.
+        Responde siempre con `Cache-Control: no-store`. Ademas fija la cookie
+        httpOnly `kenko_refresh` (complementa el JSON para no usar
+        localStorage). El frontend debe usar `GET /auth/me` para datos de UI,
+        no decodificar el JWT. No publica ningun evento.
       parameters:
         - $ref: "#/components/parameters/CorrelationId"
       requestBody:
@@ -89,8 +99,8 @@ paths:
           $ref: "#/components/responses/ValidationError"
         "401":
           description: >-
-            Credenciales invalidas. Error generico unico: no distingue
-            usuario inexistente de contrasena incorrecta (anti-enumeracion).
+            Credenciales inválidas. Error generico unico: no distingue
+            usuario inexistente de contraseña incorrecta (anti-enumeracion).
           content:
             application/json:
               schema:
@@ -98,7 +108,7 @@ paths:
               example:
                 error:
                   code: UNAUTHORIZED
-                  message: Credenciales invalidas.
+                  message: Credenciales inválidas.
                   correlationId: 0192b3d1-1a2b-7c3d-8e4f-5a6b7c8d9e10
         "429":
           description: Limite de solicitudes superado (por IP o por documento).
@@ -106,6 +116,17 @@ paths:
             Retry-After:
               schema:
                 type: integer
+            RateLimit-Limit:
+              schema:
+                type: integer
+            RateLimit-Remaining:
+              schema:
+                type: integer
+                example: 0
+            RateLimit-Reset:
+              schema:
+                type: integer
+                description: Segundos para reintentar (igual que Retry-After).
           content:
             application/json:
               schema:
@@ -114,10 +135,12 @@ paths:
     post:
       summary: Rotar refresh token
       description: >-
-        Presenta el refresh token vigente y devuelve un par nuevo; el anterior
-        queda invalidado. Presentar un token ya rotado revoca TODA la familia
-        (reuse detection). Errores indistinguibles: siempre el mismo 401
-        generico. `Cache-Control: no-store`. No publica ningun evento.
+        Presenta el refresh token vigente por BODY (prioridad) o cookie
+        httpOnly `kenko_refresh` y devuelve un par nuevo; el anterior
+        queda invalidado y se rota la cookie. Presentar un token ya rotado
+        revoca TODA la familia (reuse detection). Si falta en ambos se
+        preserva el 400 original. Errores indistinguibles: siempre el mismo 401
+        generico. `Cache-Control: no-store`. Nunca por URL. No publica ningun evento.
       parameters:
         - $ref: "#/components/parameters/CorrelationId"
       requestBody:
@@ -152,9 +175,11 @@ paths:
     post:
       summary: Cerrar sesion
       description: >-
-        Revoca TODAS las sesiones activas del usuario (todos sus dispositivos).
-        Idempotente: con un token desconocido responde igual (200) sin hacer
-        nada. `Cache-Control: no-store`. No publica ningun evento.
+        Revoca TODAS las sesiones activas del usuario (todos sus dispositivos)
+        y limpia la cookie `kenko_refresh`. Acepta el token por BODY
+        (prioridad) o cookie. Idempotente: con un token desconocido responde
+        igual (200) sin hacer nada. Si falta en ambos se preserva el 400
+        original. `Cache-Control: no-store`. No publica ningun evento.
       parameters:
         - $ref: "#/components/parameters/CorrelationId"
       requestBody:
@@ -194,8 +219,9 @@ paths:
         en la misma transacción revoca las sesiones de otras familias e
         invalida los tokens de restablecimiento pendientes. La familia
         actual sobrevive (con token pre-`sid` se revoca todo). Responde
-        `204` sin cuerpo y `Cache-Control: no-store`. Bloqueo temporal:
-        5 intentos por usuario cada 10 minutos. No publica ningún evento.
+        `200 {data:{}}` (sobre comun) y `Cache-Control: no-store`. Bloqueo
+        temporal: 5 intentos por usuario cada 10 minutos con `Retry-After` +
+        `RateLimit-*`. No publica ningún evento.
       parameters:
         - $ref: "#/components/parameters/CorrelationId"
         - $ref: "#/components/parameters/Authorization"
@@ -215,13 +241,22 @@ paths:
                   minLength: 8
                   maxLength: 128
       responses:
-        "204":
+        "200":
           description: Contraseña cambiada.
           headers:
             Cache-Control:
               schema:
                 type: string
                 example: no-store
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    example: {}
         "400":
           description: Nueva inválida (política, igual a la actual o con datos del usuario).
           content:
@@ -236,6 +271,52 @@ paths:
                 $ref: "#/components/schemas/ErrorEnvelope"
         "429":
           $ref: "#/components/responses/TooManyRequests"
+  /auth/me:
+    get:
+      summary: Identidad minima autenticada
+      description: >-
+        Requiere `Authorization: Bearer <accessToken>`. Devuelve la identidad
+        minima para la UI sin invadir `Profile`: `{data:{userId, firstName,
+        email}}` (email propio, ya autenticado). `Cache-Control: no-store`.
+        El frontend debe usar este endpoint en vez de decodificar el JWT
+        (claims documentados en login: sub/sid/iss/aud/exp/iat/jti). 401
+        generico si el usuario ya no existe. No publica ningun evento.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - $ref: "#/components/parameters/Authorization"
+      responses:
+        "200":
+          description: Identidad minima del usuario autenticado.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                example: no-store
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [userId, firstName, email]
+                    properties:
+                      userId:
+                        type: string
+                        format: uuid
+                      firstName:
+                        type: string
+                        example: Maria Fernanda
+                      email:
+                        type: string
+                        format: email
+        "401":
+          description: Sin token, token invalido o usuario inexistente.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
   /auth/email/change:
     post:
       summary: Cambiar correo (autenticado)
@@ -243,10 +324,11 @@ paths:
         Requiere `Authorization: Bearer <accessToken>`. Verifica la
         contraseña actual, normaliza y valida el correo, y si esta libre lo
         actualiza y publica `EmailChanged` en la misma transaccion
-        (outbox). Mismo correo: 200 idempotente sin escribir. Correo
-        ocupado: 409 generico (no revela nada). Las sesiones no se tocan.
-        `Cache-Control: no-store`. Bloqueo temporal: 5 intentos por usuario
-        cada 10 minutos.
+        (outbox). Mismo correo (normalizado): 200 idempotente con
+        `{data:{changed:false}}` sin escribir ni evento. Cambio real:
+        `{data:{changed:true}}`. Correo ocupado: 409 generico (no revela
+        nada). Las sesiones no se tocan. `Cache-Control: no-store`.
+        Bloqueo temporal: 5 intentos por usuario cada 10 minutos.
       parameters:
         - $ref: "#/components/parameters/CorrelationId"
         - $ref: "#/components/parameters/Authorization"
@@ -266,7 +348,7 @@ paths:
                   minLength: 1
       responses:
         "200":
-          description: Correo cambiado (o ya era el mismo).
+          description: Correo cambiado (`changed:true`) o ya era el mismo (`changed:false`).
           headers:
             Cache-Control:
               schema:
@@ -280,11 +362,15 @@ paths:
                 properties:
                   data:
                     type: object
-                    example: {}
+                    required: [changed]
+                    properties:
+                      changed:
+                        type: boolean
+                        description: false si era el mismo (idempotente), true si se actualizo.
         "400":
           $ref: "#/components/responses/ValidationError"
         "401":
-          description: Sin token, token invalido o contrasena actual incorrecta.
+          description: Sin token, token inválido o contraseña actual incorrecta.
           content:
             application/json:
               schema:
@@ -397,9 +483,11 @@ components:
         type: string
         format: uuid
       description: >-
-        Identificador de correlacion. Si se omite o esta vacio, el servidor
-        genera uno (UUID v7) y lo devuelve en la respuesta. `POST
-        /auth/register` ademas lo regenera si no es un UUID valido.
+        Identificador de correlacion (UUID v7). Si se omite, esta vacio o no
+        es UUID valido, el servidor genera uno y lo devuelve en la respuesta
+        (`X-Correlation-Id`) y en `error.correlationId`. El frontend debe
+        enviarlo y mostrar `error.correlationId` como codigo de referencia en
+        pantallas de error para soporte, sin exponer PII.
     Authorization:
       name: Authorization
       in: header
@@ -407,7 +495,7 @@ components:
       schema:
         type: string
         example: Bearer <accessToken>
-      description: Access token JWT obtenido en el login.
+      description: Access token JWT (HS256) obtenido en el login. Claims: sub (userId), sid (familia), iss, aud, exp, iat, jti. No decodificar a mano en UI: usar GET /auth/me.
   schemas:
     RegisterRequest:
       type: object
@@ -481,15 +569,15 @@ components:
           type: string
           minLength: 1
           maxLength: 128
-          description: Contrasena (los espacios cuentan, sin normalizacion).
+          description: Contraseña (los espacios cuentan, sin normalizacion).
     RefreshRequest:
       type: object
-      required: [refreshToken]
+      required: []
       properties:
         refreshToken:
           type: string
           minLength: 1
-          description: Refresh token opaco, en el BODY (nunca en la URL).
+          description: Refresh token opaco, en el BODY (prioridad) o cookie httpOnly kenko_refresh (nunca en la URL). Si falta en ambos se preserva el 400 original.
     DocumentRequest:
       type: object
       required: [documentType, documentNumber]
@@ -511,10 +599,10 @@ components:
           properties:
             accessToken:
               type: string
-              description: JWT HS256 con claims sub, iss, aud, exp, jti. Vida de 15 minutos.
+              description: JWT HS256 con claims sub (userId), sid (familia), iss, aud, exp, iat, jti. Vida de 15 minutos. No decodificar en UI: usar GET /auth/me.
             refreshToken:
               type: string
-              description: Token opaco (no es JWT). Solo para obtener nuevos tokens. Vida de 7 dias.
+              description: Token opaco (no es JWT). Solo para obtener nuevos tokens. Vida de 7 dias. Ademas se fija como cookie httpOnly kenko_refresh (Secure en https, SameSite=Lax, Path=/, Max-Age 7 dias).
             expiresIn:
               type: integer
               example: 900
@@ -530,25 +618,52 @@ components:
             code:
               type: string
               example: UNAUTHORIZED
+              description: Codigo estable para i18n en frontend (no usar message para logica).
             message:
               type: string
-              example: Credenciales invalidas.
+              example: Credenciales inválidas.
             correlationId:
               type: string
               format: uuid
+              description: Codigo de referencia para soporte (mostrar en UI de error).
+            details:
+              type: array
+              description: Un elemento por campo con error (para pintar inline). Vacio si no hay campo especifico.
+              items:
+                type: object
+                required: [message]
+                properties:
+                  field:
+                    type: string
+                    example: email
+                    description: Nombre del campo (ausente si el error no es de un campo).
+                  message:
+                    type: string
+                    example: Formato de correo inválido.
   responses:
     ValidationError:
-      description: Cuerpo de forma invalida.
+      description: Cuerpo de forma invalida, con details por campo.
       content:
         application/json:
           schema:
             $ref: "#/components/schemas/ErrorEnvelope"
     TooManyRequests:
-      description: Limite de solicitudes superado.
+      description: Limite de solicitudes superado (usar Retry-After + RateLimit-Reset para countdown).
       headers:
         Retry-After:
           schema:
             type: integer
+        RateLimit-Limit:
+          schema:
+            type: integer
+        RateLimit-Remaining:
+          schema:
+            type: integer
+            example: 0
+        RateLimit-Reset:
+          schema:
+            type: integer
+            description: Segundos para reintentar.
       content:
         application/json:
           schema:
