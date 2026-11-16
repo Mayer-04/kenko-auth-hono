@@ -62,6 +62,7 @@ export const runRelayOnce = async (deps: RelayDeps): Promise<RelayOutcome> => {
 			await deps.outbox.markDead(row.id);
 			deps.logger.error(LogEvent.OUTBOX_PAYLOAD_DEAD, {
 				eventId: row.eventId,
+				eventType: row.eventType,
 				correlationId: row.correlationId,
 				error: err instanceof Error ? err.message : "unknown",
 			});
@@ -89,6 +90,7 @@ export const runRelayOnce = async (deps: RelayDeps): Promise<RelayOutcome> => {
 			published += 1;
 			deps.logger.info(LogEvent.OUTBOX_PUBLISHED, {
 				eventId: row.eventId,
+				eventType: row.eventType,
 				correlationId: row.correlationId,
 			});
 		} catch (err) {
@@ -101,6 +103,7 @@ export const runRelayOnce = async (deps: RelayDeps): Promise<RelayOutcome> => {
 			);
 			deps.logger.warn(LogEvent.OUTBOX_PUBLISH_FAILED, {
 				eventId: row.eventId,
+				eventType: row.eventType,
 				correlationId: row.correlationId,
 				attempts,
 				error: err instanceof Error ? err.message : "unknown",

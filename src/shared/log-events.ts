@@ -33,6 +33,10 @@ export const LogEvent = {
 	EMAIL_CHANGED: "email.changed",
 	EMAIL_CHANGE_FAILED: "email.change_failed",
 	ACCOUNT_RATE_LIMITED: "account.rate_limited",
+	REGISTER_SUCCEEDED: "register.succeeded",
+	REGISTER_FAILED: "register.failed",
+	ME_FAILED: "me.failed",
+	HTTP_REQUEST: "http.request",
 } as const;
 
 export type LogEvent = (typeof LogEvent)[keyof typeof LogEvent];

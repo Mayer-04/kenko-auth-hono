@@ -6,7 +6,11 @@ import type { Environment } from "./env.js";
 /**
  * Logger unico del servicio (Winston).
  *
- * - JSON estructurado con `service`, `timestamp` y `level`.
+ * - Produccion/test: JSON estructurado con `service`, `timestamp` y `level`
+ *   (apto para CloudWatch/agregadores; se filtra por `event` y `correlationId`).
+ * - Desarrollo: misma informacion con color por nivel
+ *   (`info`=verde, `warn`=amarillo, `error`=rojo) y una linea legible por
+ *   request/evento. No cambia lo que se registra, solo como se ve.
  * - Nunca registrar contrasenas, tokens, secretos ni PII completa
  *   (documento, direccion, telefono, correo). Los llamadores pasan solo
  *   `correlationId`, `userId`, `eventId` u otros IDs no sensibles.
@@ -25,12 +29,25 @@ const levelFor = (environment: Environment): string => {
 export const initLogger = (environment: Environment): winston.Logger => {
 	if (rootLogger !== undefined) return rootLogger;
 
+	// Desarrollo: legible con color. El objeto completo sigue disponible en
+	// `metadata` para depurar sin perder campos.
+	const devFormat = winston.format.combine(
+		winston.format.colorize({ all: true }),
+		winston.format.timestamp(),
+		winston.format.printf(
+			({ level, message, timestamp, service, ...rest }) =>
+				`${timestamp} [${service}] ${level}: ${message} ${JSON.stringify(rest)}`,
+		),
+	);
+
+	const productionFormat = winston.format.combine(
+		winston.format.timestamp(),
+		winston.format.json(),
+	);
+
 	rootLogger = winston.createLogger({
 		level: levelFor(environment),
-		format: winston.format.combine(
-			winston.format.timestamp(),
-			winston.format.json(),
-		),
+		format: environment === "development" ? devFormat : productionFormat,
 		defaultMeta: { service: SERVICE_NAME },
 		transports: [new winston.transports.Console()],
 	});
