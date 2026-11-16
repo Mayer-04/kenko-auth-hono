@@ -1,5 +1,7 @@
 import { isUniqueViolation } from "../../shared/db-errors.js";
 import { registerConflict } from "../../shared/errors.js";
+import { LogEvent } from "../../shared/log-events.js";
+import { maskEmail } from "./register.normalize.js";
 import type { RegisterDeps, RegisterService } from "./register.port.js";
 import type { RegisterInput, UserRegisteredDetail } from "./register.types.js";
 
@@ -12,7 +14,9 @@ import type { RegisterInput, UserRegisteredDetail } from "./register.types.js";
  * - Respuesta anti-enumeracion: cualquier duplicado es el mismo 409 generico,
  *   sin distinguir campo. Compromiso documentado: menos UX a cambio de no
  *   revelar que email/documento ya existe (Ley 1581).
- * - Nunca registra PII ni el hash; el llamador loguea solo IDs.
+ * - Logs: `register.succeeded` (info, con `userId`+`eventId`) y
+ *   `register.failed` (warn, solo `correlationId` para no revelar que existe).
+ *   Nunca registra PII ni el hash.
  */
 export const makeRegisterService = (deps: RegisterDeps): RegisterService => {
 	return async (input: RegisterInput, correlationId: string) => {
@@ -25,6 +29,7 @@ export const makeRegisterService = (deps: RegisterDeps): RegisterService => {
 			deps.users.findByDocument(input.documentType, input.documentNumber),
 		]);
 		if (byEmail !== null || byDocument !== null) {
+			deps.logger.warn(LogEvent.REGISTER_FAILED, { correlationId });
 			throw registerConflict(correlationId);
 		}
 
@@ -75,10 +80,19 @@ export const makeRegisterService = (deps: RegisterDeps): RegisterService => {
 				},
 			});
 		} catch (err) {
-			if (isUniqueViolation(err)) throw registerConflict(correlationId);
+			if (isUniqueViolation(err)) {
+				deps.logger.warn(LogEvent.REGISTER_FAILED, { correlationId });
+				throw registerConflict(correlationId);
+			}
 			throw err;
 		}
 
-		return { userId, correlationId };
+		deps.logger.info(LogEvent.REGISTER_SUCCEEDED, {
+			userId,
+			eventId,
+			correlationId,
+		});
+
+		return { userId, maskedEmail: maskEmail(input.email), correlationId };
 	};
 };

@@ -23,9 +23,10 @@ export type RegisterInput = {
 	password: string;
 };
 
-/** Resultado del caso de uso. Solo IDs, sin PII. */
+/** Resultado del caso de uso. Solo IDs + email enmascarado, sin PII completa. */
 export type RegisterResult = {
 	userId: string;
+	maskedEmail: string;
 	correlationId: string;
 };
 

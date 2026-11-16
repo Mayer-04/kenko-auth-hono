@@ -12,12 +12,22 @@ export type PasswordHasher = {
 	verify(hash: string, password: string): Promise<boolean>;
 };
 
+/**
+ * Logger minimo del registro (solo IDs, sin PII: nada de email, documento,
+ * telefono ni password aunque esten en el input).
+ */
+export type RegisterLogger = {
+	info(event: string, ids: Record<string, string>): void;
+	warn(event: string, ids: Record<string, string>): void;
+};
+
 export type RegisterDeps = {
 	users: UserRepository;
 	hasher: PasswordHasher;
 	newUserId: () => string;
 	newEventId: () => string;
 	nowIso: () => string;
+	logger: RegisterLogger;
 };
 
 export type RegisterService = (

@@ -37,3 +37,17 @@ export const normalizeDocumentNumber = (value: string): string => {
 		.replace(/[\s.-]/g, "")
 		.toUpperCase();
 };
+
+/**
+ * Enmascara un email ya normalizado para mostrarlo en UI sin filtrar PII.
+ * `maria.gomez@example.com` -> `m***@example.com`. Si el formato es
+ * inesperado, devuelve una forma neutra sin revelar el valor.
+ */
+export const maskEmail = (email: string): string => {
+	const at = email.indexOf("@");
+	if (at <= 0 || at === email.length - 1) return "***@***";
+	const local = email.slice(0, at);
+	const domain = email.slice(at + 1);
+	const first = local.slice(0, 1);
+	return `${first}***@${domain}`;
+};

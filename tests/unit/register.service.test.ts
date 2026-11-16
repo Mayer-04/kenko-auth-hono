@@ -34,7 +34,16 @@ const fakeUsers = (
 	};
 };
 
-const depsBase = (users: UserRepository) => ({
+const depsBase = (
+	users: UserRepository,
+	logger: {
+		info: (event: string, ids: Record<string, string>) => void;
+		warn: (event: string, ids: Record<string, string>) => void;
+	} = {
+		info: () => {},
+		warn: () => {},
+	},
+) => ({
 	users,
 	hasher: {
 		hash: async (p: string) => `hashed:${p}`,
@@ -43,6 +52,7 @@ const depsBase = (users: UserRepository) => ({
 	newUserId: () => "0192b3d1-1a2b-7c3d-8e4f-5a6b7c8d9e0f",
 	newEventId: () => "0192b3d1-1a2b-7c3d-8e4f-5a6b7c8d9e10",
 	nowIso: () => "2026-10-13T20:15:30.000Z",
+	logger,
 });
 
 describe("makeRegisterService", () => {
@@ -52,6 +62,7 @@ describe("makeRegisterService", () => {
 		const res = await service({ ...INPUT }, "corr-1");
 
 		expect(res.userId).toBe("0192b3d1-1a2b-7c3d-8e4f-5a6b7c8d9e0f");
+		expect(res.maskedEmail).toBe("m***@example.com");
 		expect(users.created).toHaveLength(1);
 		const call = users.created[0];
 		expect(call).toBeDefined();
@@ -118,5 +129,57 @@ describe("makeRegisterService", () => {
 		).rejects.toMatchObject({
 			code: "REGISTER_CONFLICT",
 		});
+	});
+
+	it("exito deja register.succeeded con IDs y sin PII; duplicado deja register.failed", async () => {
+		const calls: Array<{
+			level: string;
+			event: string;
+			ids: Record<string, string>;
+		}> = [];
+		const logger = {
+			info: (event: string, ids: Record<string, string>) => {
+				calls.push({ level: "info", event, ids });
+			},
+			warn: (event: string, ids: Record<string, string>) => {
+				calls.push({ level: "warn", event, ids });
+			},
+		};
+		const users = fakeUsers();
+		await makeRegisterService(depsBase(users, logger))({ ...INPUT }, "corr-9");
+		expect(calls).toEqual([
+			{
+				level: "info",
+				event: "register.succeeded",
+				ids: {
+					userId: "0192b3d1-1a2b-7c3d-8e4f-5a6b7c8d9e0f",
+					eventId: "0192b3d1-1a2b-7c3d-8e4f-5a6b7c8d9e10",
+					correlationId: "corr-9",
+				},
+			},
+		]);
+		expect(JSON.stringify(calls)).not.toContain("maria.gomez@example.com");
+
+		const taken = fakeUsers({
+			findByEmail: async () => ({
+				id: "x",
+				email: INPUT.email,
+				documentType: "CC",
+				documentNumber: "1",
+				passwordHash: "h",
+			}),
+		});
+		const warnCalls: Array<{ event: string; ids: Record<string, string> }> = [];
+		await makeRegisterService(
+			depsBase(taken, {
+				info: () => {},
+				warn: (event: string, ids: Record<string, string>) => {
+					warnCalls.push({ event, ids });
+				},
+			}),
+		)({ ...INPUT }, "corr-10").catch(() => null);
+		expect(warnCalls).toEqual([
+			{ event: "register.failed", ids: { correlationId: "corr-10" } },
+		]);
 	});
 });

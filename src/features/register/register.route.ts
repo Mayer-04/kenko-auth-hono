@@ -4,7 +4,7 @@ import { Hono } from "hono";
 import { AppError, internalError } from "../../shared/errors.js";
 import { CORRELATION_ID_HEADER } from "../../shared/headers.js";
 import { type AppVariables, created } from "../../shared/http.js";
-import { isUuid, newId } from "../../shared/ids.js";
+import { resolveCorrelationId } from "../../shared/ids.js";
 import { validationErrorHook } from "../../shared/validation.js";
 import type { Gender } from "../user/user.types.js";
 import type { RegisterService } from "./register.port.js";
@@ -13,7 +13,9 @@ import { RegisterSchema } from "./register.schema.js";
 /**
  * `POST /auth/register`.
  *
- * - Valida con Zod (`@hono/zod-validator`), responde 201 `{ data: { userId } }`.
+ * - Valida con Zod (`@hono/zod-validator`), responde 201 `{ data: { userId, maskedEmail } }`.
+ * - `maskedEmail` (`m***@dominio`) permite a la UI confirmar el destino del
+ *   correo de bienvenida sin exponer PII completa.
  * - `correlationId`: reutiliza `X-Correlation-Id` si es UUID, si no genera v7.
  *   Viaja en respuesta y a logs/servicio/evento.
  * - Errores de negocio (409 generico) via `AppError`; el handler central
@@ -28,9 +30,9 @@ export const makeRegisterRoute = (
 		"/auth/register",
 		zValidator("json", RegisterSchema, validationErrorHook),
 		async (c) => {
-			const header = c.req.header(CORRELATION_ID_HEADER);
-			const correlationId =
-				header !== undefined && isUuid(header) ? header : newId();
+			const correlationId = resolveCorrelationId(
+				c.req.header(CORRELATION_ID_HEADER),
+			);
 			c.set("correlationId", correlationId);
 			c.header(CORRELATION_ID_HEADER, correlationId);
 
@@ -55,7 +57,10 @@ export const makeRegisterRoute = (
 				throw internalError(correlationId, err);
 			});
 
-			return created(c, { userId: result.userId });
+			return created(c, {
+				userId: result.userId,
+				maskedEmail: result.maskedEmail,
+			});
 		},
 	);
 

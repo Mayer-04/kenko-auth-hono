@@ -63,15 +63,15 @@ export const PasswordFieldSchema = z
 	.string()
 	.min(
 		RegisterLimits.PASSWORD_MIN_LENGTH,
-		"La contrasena debe tener al menos 8 caracteres.",
+		"La contraseña debe tener al menos 8 caracteres.",
 	)
 	.max(
 		RegisterLimits.PASSWORD_MAX_LENGTH,
-		"La contrasena no puede superar 128 caracteres.",
+		"La contraseña no puede superar 128 caracteres.",
 	)
 	.refine(
 		(v) => !COMMON_PASSWORDS.has(v.toLowerCase()),
-		"Elija una contrasena menos comun.",
+		"Elija una contraseña menos común.",
 	);
 
 /** Regex del numero de documento (mismas reglas que en registro). */
@@ -103,12 +103,12 @@ export const RegisterInputSchema = z.object({
 		(v) => (typeof v === "string" ? normalizePhoneToE164(v) : v),
 		z
 			.string()
-			.regex(E164, "Telefono invalido. Use formato internacional E.164."),
+			.regex(E164, "Teléfono inválido. Use formato internacional E.164."),
 	),
 	addressLine: z
 		.string()
 		.trim()
-		.min(1, "Direccion es obligatoria.")
+		.min(1, "Dirección es obligatoria.")
 		.max(RegisterLimits.ADDRESS_MAX_LENGTH),
 	city: z
 		.string()
@@ -121,7 +121,7 @@ export const RegisterInputSchema = z.object({
 	),
 	documentNumber: z.preprocess(
 		(v) => (typeof v === "string" ? normalizeDocumentNumber(v) : v),
-		z.string().regex(documentNumberRegex(), "Numero de documento invalido."),
+		z.string().regex(documentNumberRegex(), "Número de documento inválido."),
 	),
 	password: PasswordFieldSchema,
 	confirmPassword: z.string(),
@@ -129,7 +129,7 @@ export const RegisterInputSchema = z.object({
 
 export const RegisterSchema = RegisterInputSchema.refine(
 	(v) => v.password === v.confirmPassword,
-	{ path: ["confirmPassword"], message: "Las contrasenas no coinciden." },
+	{ path: ["confirmPassword"], message: "Las contraseñas no coinciden." },
 );
 
 export type RegisterRequest = z.infer<typeof RegisterSchema>;
