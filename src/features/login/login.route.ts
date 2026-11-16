@@ -1,6 +1,10 @@
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
-
+import {
+	buildClearRefreshCookie,
+	buildRefreshCookie,
+	refreshTokenFromCookie,
+} from "../../shared/cookies.js";
 import {
 	AppError,
 	internalError,
@@ -8,7 +12,7 @@ import {
 } from "../../shared/errors.js";
 import {
 	FORWARDED_FOR_HEADER,
-	RETRY_AFTER_HEADER,
+	SET_COOKIE_HEADER,
 } from "../../shared/headers.js";
 import { type AppVariables, ok } from "../../shared/http.js";
 import { LogEvent } from "../../shared/log-events.js";
@@ -16,6 +20,7 @@ import { noStoreMiddleware } from "../../shared/middleware/no-store.js";
 import {
 	clientIp,
 	firstRateLimitFailure,
+	setRateLimitHeaders,
 } from "../../shared/ratelimit/rate-limit-http.js";
 import type { RateLimiter } from "../../shared/ratelimit/ratelimit.port.js";
 import { validationErrorHook } from "../../shared/validation.js";
@@ -32,17 +37,25 @@ import { LoginSchema, LogoutSchema, RefreshSchema } from "./login.schema.js";
  *
  * Seguridad:
  * - Responden con `Cache-Control: no-store` (los tokens no deben quedar en
- *   caches): Authentication solo devuelve los tokens; el BFF los guarda y el
- *   navegador conserva unicamente la cookie de sesion.
+ *   caches). El JSON con tokens se mantiene por compatibilidad, pero ademas
+ *   se fija la cookie httpOnly `kenko_refresh` para que el frontend no guarde
+ *   el refresh en `localStorage` (flujo recomendado 2026). `refresh`/`logout`
+ *   aceptan el token por BODY (prioridad) o por cookie; nunca por URL.
  * - Error UNICO `401 UNAUTHORIZED` generico en login y refresh, sin
  *   distinguir el motivo (anti-enumeracion). Logout responde siempre 200.
- *   Los errores de forma (Zod) son `400` aparte.
- * - Rate limiting por IP (las tres) y por documento (login). La IP sale de
- *   `X-Forwarded-For`; sin proxy en dev todas las peticiones comparten la
- *   clave `unknown` (misma limitacion documentada que en `passwordreset`).
+ *   Los errores de forma (Zod) son `400` aparte; si falta el token en body
+ *   y en cookie se preserva el 400 original.
+ * - Rate limiting por IP (las tres) y por documento (login) con `Retry-After`
+ *   + `RateLimit-*` en 429. La IP sale de `X-Forwarded-For`; sin proxy en dev
+ *   todas las peticiones comparten la clave `unknown`.
  * - `correlationId` lo propaga el middleware global de la app.
- * - Nunca se registra contrasena, token ni documento; solo IDs.
+ * - Nunca se registra contraseña, token ni documento; solo IDs.
  * - Ninguna publica eventos.
+ *
+ * Claims del access token (documentados para el frontend, no para decodificar
+ * a mano): `sub` (userId), `sid` (familia de sesion), `iss`, `aud`, `exp`,
+ * `iat`, `jti`. El frontend debe usar `GET /auth/me` para datos de UI en vez
+ * de decodificar el JWT.
  */
 
 export type LoginRouteLimits = {
@@ -61,6 +74,29 @@ export type LoginRouteDeps = {
 	logger: LoginLogger;
 	limits: LoginRouteLimits;
 };
+
+/**
+ * Token para `refresh`/`logout`: BODY (prioridad) o cookie httpOnly.
+ * Si falta en ambos se preserva el 400 original (no 401): el contrato de
+ * forma no cambia, solo se añade la fuente alternativa.
+ */
+const resolveRefreshToken = (
+	bodyToken: string | undefined,
+	cookieHeader: string | undefined,
+	correlationId: string,
+): string => {
+	const refreshToken = bodyToken ?? refreshTokenFromCookie(cookieHeader);
+	if (refreshToken === undefined || refreshToken === "") {
+		throw new AppError("VALIDATION_ERROR", "Credenciales inválidas.", {
+			correlationId,
+		});
+	}
+	return refreshToken;
+};
+
+const forwardedProtoOf = (c: {
+	req: { header(name: string): string | undefined };
+}) => c.req.header("X-Forwarded-Proto");
 
 export const makeLoginRoute = (
 	deps: LoginRouteDeps,
@@ -94,9 +130,10 @@ export const makeLoginRoute = (
 			if (failure !== null) {
 				deps.logger.warn(LogEvent.LOGIN_RATE_LIMITED, {
 					scope: failure.scope,
+					limit: String(failure.limit),
 					correlationId,
 				});
-				c.header(RETRY_AFTER_HEADER, String(failure.retryAfterSeconds));
+				setRateLimitHeaders((name, value) => c.header(name, value), failure);
 				throw rateLimitedError(correlationId);
 			}
 
@@ -114,6 +151,10 @@ export const makeLoginRoute = (
 					throw internalError(correlationId, err);
 				});
 
+			c.header(
+				SET_COOKIE_HEADER,
+				buildRefreshCookie(result.refreshToken, c.req.url, forwardedProtoOf(c)),
+			);
 			return ok(c, {
 				accessToken: result.accessToken,
 				refreshToken: result.refreshToken,
@@ -142,19 +183,30 @@ export const makeLoginRoute = (
 			if (failure !== null) {
 				deps.logger.warn(LogEvent.LOGIN_RATE_LIMITED, {
 					scope: failure.scope,
+					limit: String(failure.limit),
 					correlationId,
 				});
-				c.header(RETRY_AFTER_HEADER, String(failure.retryAfterSeconds));
+				setRateLimitHeaders((name, value) => c.header(name, value), failure);
 				throw rateLimitedError(correlationId);
 			}
 
+			const refreshToken = resolveRefreshToken(
+				body.refreshToken,
+				c.req.header("Cookie"),
+				correlationId,
+			);
+
 			const result = await deps
-				.refresh({ refreshToken: body.refreshToken }, correlationId)
+				.refresh({ refreshToken }, correlationId)
 				.catch((err: unknown) => {
 					if (err instanceof AppError) throw err;
 					throw internalError(correlationId, err);
 				});
 
+			c.header(
+				SET_COOKIE_HEADER,
+				buildRefreshCookie(result.refreshToken, c.req.url, forwardedProtoOf(c)),
+			);
 			return ok(c, {
 				accessToken: result.accessToken,
 				refreshToken: result.refreshToken,
@@ -183,20 +235,31 @@ export const makeLoginRoute = (
 			if (failure !== null) {
 				deps.logger.warn(LogEvent.LOGIN_RATE_LIMITED, {
 					scope: failure.scope,
+					limit: String(failure.limit),
 					correlationId,
 				});
-				c.header(RETRY_AFTER_HEADER, String(failure.retryAfterSeconds));
+				setRateLimitHeaders((name, value) => c.header(name, value), failure);
 				throw rateLimitedError(correlationId);
 			}
 
+			const refreshToken = resolveRefreshToken(
+				body.refreshToken,
+				c.req.header("Cookie"),
+				correlationId,
+			);
+
 			// Siempre 200 (idempotente): con token desconocido no hace nada.
 			await deps
-				.logout({ refreshToken: body.refreshToken }, correlationId)
+				.logout({ refreshToken }, correlationId)
 				.catch((err: unknown) => {
 					if (err instanceof AppError) throw err;
 					throw internalError(correlationId, err);
 				});
 
+			c.header(
+				SET_COOKIE_HEADER,
+				buildClearRefreshCookie(c.req.url, forwardedProtoOf(c)),
+			);
 			return ok(c, {});
 		},
 	);

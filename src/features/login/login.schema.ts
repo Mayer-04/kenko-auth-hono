@@ -22,12 +22,12 @@ export const LoginSchema = z.object({
 	documentNumber: z.preprocess(
 		(value) =>
 			typeof value === "string" ? normalizeDocumentNumber(value) : value,
-		z.string().regex(documentNumberRegex(), "Numero de documento invalido."),
+		z.string().regex(documentNumberRegex(), "Número de documento inválido."),
 	),
 	password: z
 		.string()
-		.min(1, "Credenciales invalidas.")
-		.max(LoginLimits.PASSWORD_MAX_LENGTH, "Credenciales invalidas."),
+		.min(1, "Credenciales inválidas.")
+		.max(LoginLimits.PASSWORD_MAX_LENGTH, "Credenciales inválidas."),
 });
 
 export type LoginRequest = z.infer<typeof LoginSchema>;
@@ -37,11 +37,13 @@ export type LoginRequest = z.infer<typeof LoginSchema>;
  *
  * El token es opaco: NO se valida su formato aqui; cualquier cadena se
  * hashea y se busca por hash. Un token basura simplemente no coincide y
- * produce el 401 generico (anti-enumeracion). Llega en el BODY, nunca en
- * la URL.
+ * produce el 401 generico (anti-enumeracion). Llega en el BODY o en la
+ * cookie httpOnly `kenko_refresh` (el BODY tiene prioridad); nunca en la URL.
+ * Se acepta ausente en body para permitir el flujo por cookie: si falta en
+ * ambos se responde 400 (se preserva el contrato original).
  */
 const RefreshTokenSchema = z.object({
-	refreshToken: z.string().min(1, "Credenciales invalidas."),
+	refreshToken: z.string().min(1, "Credenciales inválidas.").optional(),
 });
 
 export const RefreshSchema = RefreshTokenSchema;

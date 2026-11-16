@@ -79,6 +79,8 @@ export const makeLoginService = (deps: LoginDeps): LoginService => {
 		deps.logger.info(LogEvent.LOGIN_SUCCEEDED, {
 			userId: user.id,
 			sessionId,
+			familyId,
+			jwtId,
 			correlationId,
 		});
 
@@ -141,9 +143,10 @@ export const makeRefreshSessionService = (
 
 		const now = deps.now();
 		const issuedAtSeconds = Math.floor(now.getTime() / 1000);
+		const newJwtId = deps.newJwtId();
 		const accessToken = await deps.accessTokens.signAccessToken({
 			subject: session.userId,
-			tokenId: deps.newJwtId(),
+			tokenId: newJwtId,
 			issuedAtSeconds,
 			expiresAtSeconds: issuedAtSeconds + deps.accessTtlSeconds,
 			sessionFamilyId: session.familyId,
@@ -183,6 +186,7 @@ export const makeRefreshSessionService = (
 		deps.logger.info(LogEvent.LOGIN_REFRESHED, {
 			userId: session.userId,
 			familyId: session.familyId,
+			jwtId: newJwtId,
 			correlationId,
 		});
 
