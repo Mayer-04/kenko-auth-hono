@@ -58,6 +58,13 @@ export const EnvSchema = z.object({
 	AWS_RDS_POSTGRES_URL: optionalWhenPresent(z.url()),
 	PORTAL_BASE_URL: z.url().default("http://localhost:8080"),
 	/**
+	 * Orígenes permitidos para CORS (lista separada por comas).
+	 * Si se omite o viene vacío, se usan los defaults de `src/config/cors.ts`
+	 * (localhost/127.0.0.1 en los puertos de desarrollo del frontend).
+	 * Debe incluir el origen exacto (esquema + host + puerto, sin `/` final).
+	 */
+	CORS_ORIGINS: optionalWhenPresent(z.string().min(1)),
+	/**
 	 * Secreto HMAC para JWT HS256. Minimo 32 caracteres (idealmente 32 bytes
 	 * aleatorios en base64, p. ej. `openssl rand -base64 32`). Nunca se
 	 * registra ni se versiona: solo vive en el entorno / gestor de secretos.
