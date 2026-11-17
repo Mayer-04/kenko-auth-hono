@@ -37,6 +37,7 @@ export const LogEvent = {
 	REGISTER_FAILED: "register.failed",
 	ME_FAILED: "me.failed",
 	HTTP_REQUEST: "http.request",
+	HTTP_UNHANDLED_ERROR: "http.unhandled_error",
 } as const;
 
 export type LogEvent = (typeof LogEvent)[keyof typeof LogEvent];

@@ -172,7 +172,7 @@ export const buildApp = (deps: AppDeps): Hono<{ Variables: AppVariables }> => {
 	app.route("/", me);
 
 	app.notFound((c) => notFoundHandler(c));
-	app.onError((err, c) => errorHandler(err, c));
+	app.onError((err, c) => errorHandler(err, c, deps.routeLogger));
 
 	return app;
 };

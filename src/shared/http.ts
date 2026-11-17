@@ -1,7 +1,9 @@
 import type { Context } from "hono";
+import { HTTPException } from "hono/http-exception";
 
 import { AppError } from "./errors.js";
 import { HttpStatus } from "./http-status.js";
+import { LogEvent } from "./log-events.js";
 
 export type AppVariables = {
 	correlationId: string;
@@ -40,8 +42,17 @@ const correlationIdOf = (c: AppContext): string => {
 	return typeof fromVar === "string" && fromVar !== "" ? fromVar : "unknown";
 };
 
+/** Escritor minimo para dejar rastro de 500 no manejados (sin PII). */
+export type ErrorLogger = {
+	warn(event: string, fields: Record<string, string>): void;
+};
+
 /** Manejador central de errores para `app.onError`. */
-export const errorHandler = (err: unknown, c: AppContext) => {
+export const errorHandler = (
+	err: unknown,
+	c: AppContext,
+	logger?: ErrorLogger,
+) => {
 	const correlationId = correlationIdOf(c);
 
 	if (err instanceof AppError) {
@@ -58,6 +69,49 @@ export const errorHandler = (err: unknown, c: AppContext) => {
 			err.code === "VALIDATION_ERROR" ? { ...base, details: [] } : base;
 		return c.json({ error: body }, err.status as 400);
 	}
+
+	if (err instanceof HTTPException) {
+		// Hono lanza `HTTPException` antes de nuestros validadores Zod
+		// (p. ej. `Content-Type: application/json` con body vacio o malformado:
+		// el validador intenta `req.json()`, falla y lanza 400). Sin esta rama
+		// esos errores de forma caian al 500 generico de abajo.
+		if (err.status === HttpStatus.NOT_FOUND) {
+			return c.json(
+				{
+					error: {
+						code: "NOT_FOUND",
+						message: "Recurso no encontrado.",
+						correlationId,
+					},
+				},
+				HttpStatus.NOT_FOUND,
+			);
+		}
+		if (
+			err.status >= HttpStatus.BAD_REQUEST &&
+			err.status < HttpStatus.INTERNAL_ERROR
+		) {
+			return c.json(
+				{
+					error: {
+						code: "VALIDATION_ERROR",
+						message: "Cuerpo de la petición inválido.",
+						correlationId,
+						details: [],
+					},
+				},
+				err.status as 400,
+			);
+		}
+	}
+
+	// Error no manejado: se deja rastro con `correlationId` y el nombre del
+	// error para poder rastrearlo en logs. Nunca el mensaje ni el stack:
+	// podrian contener SQL, PII o secretos.
+	logger?.warn(LogEvent.HTTP_UNHANDLED_ERROR, {
+		correlationId,
+		errorName: err instanceof Error ? err.name : typeof err,
+	});
 
 	// Zod/Hono validator ya responde 400 por su cuenta; esto cubre el resto.
 	return c.json(
