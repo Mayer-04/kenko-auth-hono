@@ -23,6 +23,7 @@ import { RegisterSchema } from "./register.schema.js";
  */
 export const makeRegisterRoute = (
 	service: RegisterService,
+	opts: { onOutboxWrite?: (() => void) | undefined } = {},
 ): Hono<{ Variables: AppVariables }> => {
 	const route = new Hono<{ Variables: AppVariables }>();
 
@@ -56,6 +57,10 @@ export const makeRegisterRoute = (
 				if (err instanceof AppError) throw err;
 				throw internalError(correlationId, err);
 			});
+
+			// Aviso async al relay Lambda (no bloquea la respuesta; si falla,
+			// el Scheduler de 1 min lo recoge). Solo tras exito con outbox.
+			opts.onOutboxWrite?.();
 
 			return created(c, {
 				userId: result.userId,

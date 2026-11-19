@@ -47,6 +47,7 @@ import {
 	createEventBridgeClient,
 	resolveBusName,
 } from "./infra/events/eventbridge-client.js";
+import { makeRelayInvoker } from "./infra/events/relay-invoker.js";
 import { makeArgon2Hasher } from "./infra/password/argon2-hasher.js";
 import { makeInMemoryRateLimiter } from "./infra/ratelimit/in-memory-rate-limiter.js";
 import { makeResetTokenTool } from "./infra/security/reset-token.js";
@@ -81,6 +82,7 @@ export type Container = {
 	accountRouteLimits: AccountRouteLimits;
 	eventBusName: string;
 	allowedOrigins: string[];
+	notifyRelay: () => void;
 };
 
 export const buildContainer = (): Container => {
@@ -200,6 +202,13 @@ export const buildContainer = (): Container => {
 
 	const requireAuth = makeRequireAuth(jwtSigner);
 
+	/** Aviso async al relay Lambda (no-op sin RELAY_FUNCTION_NAME). */
+	const notifyRelay = makeRelayInvoker({
+		region: env.AWS_REGION,
+		functionName: env.RELAY_FUNCTION_NAME,
+		logger,
+	});
+
 	const rateLimiter = makeInMemoryRateLimiter({
 		bucketsMax: PasswordResetLimits.RATE_BUCKETS_MAX,
 	});
@@ -248,5 +257,6 @@ export const buildContainer = (): Container => {
 		accountRouteLimits,
 		eventBusName: resolveBusName(env.EVENT_BUS_NAME),
 		allowedOrigins: resolveCorsOrigins(env.CORS_ORIGINS),
+		notifyRelay,
 	};
 };

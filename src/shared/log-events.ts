@@ -13,6 +13,7 @@ export const LogEvent = {
 	RELAY_STARTING: "relay.starting",
 	RELAY_STOPPING: "relay.stopping",
 	RELAY_TICK_FAILED: "outbox.relay_tick_failed",
+	RELAY_NOTIFY_FAILED: "outbox.relay_notify_failed",
 	OUTBOX_PUBLISHED: "outbox.published",
 	OUTBOX_PUBLISH_FAILED: "outbox.publish_failed",
 	OUTBOX_PAYLOAD_NORMALIZED: "outbox.payload_normalized",

@@ -71,6 +71,8 @@ export type AppDeps = {
 	loginRouteLimits: LoginRouteLimits;
 	accountRouteLimits: AccountRouteLimits;
 	allowedOrigins: string[];
+	/** Aviso async al relay tras escribir en outbox. Opcional. */
+	notifyRelay?: (() => void) | undefined;
 };
 
 export const buildApp = (deps: AppDeps): Hono<{ Variables: AppVariables }> => {
@@ -125,7 +127,9 @@ export const buildApp = (deps: AppDeps): Hono<{ Variables: AppVariables }> => {
 
 	app.get("/health", (c) => c.json({ data: { status: "ok" } }));
 
-	const register = makeRegisterRoute(deps.registerService);
+	const register = makeRegisterRoute(deps.registerService, {
+		onOutboxWrite: deps.notifyRelay,
+	});
 	app.route("/", register);
 
 	const login = makeLoginRoute({
@@ -144,6 +148,7 @@ export const buildApp = (deps: AppDeps): Hono<{ Variables: AppVariables }> => {
 		rateLimiter: deps.rateLimiter,
 		logger: deps.routeLogger,
 		limits: deps.routeLimits,
+		onOutboxWrite: deps.notifyRelay,
 	});
 	app.route("/", passwordReset);
 
@@ -165,6 +170,7 @@ export const buildApp = (deps: AppDeps): Hono<{ Variables: AppVariables }> => {
 		rateLimiter: deps.rateLimiter,
 		logger: deps.routeLogger,
 		limits: deps.accountRouteLimits,
+		onOutboxWrite: deps.notifyRelay,
 	});
 	app.route("/", changeEmail);
 

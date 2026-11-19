@@ -62,6 +62,8 @@ export type PasswordResetRouteDeps = {
 	rateLimiter: RateLimiter;
 	logger: PasswordResetLogger;
 	limits: PasswordResetRouteLimits;
+	/** Aviso async al relay tras escribir en outbox. Opcional. */
+	onOutboxWrite?: (() => void) | undefined;
 };
 
 export const makePasswordResetRoute = (
@@ -123,6 +125,10 @@ export const makePasswordResetRoute = (
 				});
 
 			// Respuesta identica exista o no la cuenta (anti-enumeracion).
+			// El aviso va igual: si no habia cuenta no hay outbox y el
+			// relay no encuentra nada pendiente.
+			deps.onOutboxWrite?.();
+
 			return ok(c, {});
 		},
 	);

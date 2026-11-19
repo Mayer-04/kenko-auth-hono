@@ -118,6 +118,8 @@ export type ChangeEmailRouteDeps = {
 	rateLimiter: RateLimiter;
 	logger: AccountLogger;
 	limits: AccountRouteLimits;
+	/** Aviso async al relay tras escribir en outbox. Opcional. */
+	onOutboxWrite?: (() => void) | undefined;
 };
 
 /**
@@ -185,6 +187,9 @@ export const makeChangeEmailRoute = (
 					if (err instanceof AppError) throw err;
 					throw internalError(correlationId, err);
 				});
+
+			// Solo avisa si hubo escritura (changed:true genera evento).
+			if (result.changed) deps.onOutboxWrite?.();
 
 			return ok(c, { changed: result.changed });
 		},

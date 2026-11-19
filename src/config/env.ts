@@ -54,6 +54,11 @@ export const EnvSchema = z.object({
 	ENVIRONMENT: z.enum(ENVIRONMENTS),
 	EVENT_BUS_NAME: z.string().min(1).default(DEFAULT_EVENT_BUS_NAME),
 	AWS_REGION: optionalWhenPresent(z.string().min(1)),
+	/**
+	 * Nombre de la funcion Lambda del relay para aviso async tras
+	 * escribir en `outbox`. Ausente = aviso desactivado (local/tests).
+	 */
+	RELAY_FUNCTION_NAME: optionalWhenPresent(z.string().min(1)),
 	POSTGRES_URL: z.url(),
 	AWS_RDS_POSTGRES_URL: optionalWhenPresent(z.url()),
 	PORTAL_BASE_URL: z.url().default("http://localhost:8080"),

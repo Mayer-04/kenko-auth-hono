@@ -24,6 +24,7 @@ const app = buildApp({
 	loginRouteLimits: container.loginRouteLimits,
 	accountRouteLimits: container.accountRouteLimits,
 	allowedOrigins: container.allowedOrigins,
+	notifyRelay: container.notifyRelay,
 });
 
 const port = container.env.PORT;
