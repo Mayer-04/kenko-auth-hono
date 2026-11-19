@@ -44,3 +44,7 @@ logs/
 .DS_Store
 Thumbs.db
 desktop.ini
+# Nunca versionar credenciales generadas a mano
+*creds*.txt
+*password*.txt
+*-creds.txt
