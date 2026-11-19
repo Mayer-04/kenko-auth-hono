@@ -51,3 +51,9 @@ resource "aws_iam_role_policy_attachment" "relay" {
   role       = aws_iam_role.relay.name
   policy_arn = aws_iam_policy.relay.arn
 }
+
+# La Lambda en VPC necesita crear sus tarjetas de red (ENI).
+resource "aws_iam_role_policy_attachment" "relay_vpc" {
+  role       = aws_iam_role.relay.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+}

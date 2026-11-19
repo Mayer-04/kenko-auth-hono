@@ -35,7 +35,7 @@ variable "event_bus_name" {
 variable "image_tag" {
   description = "Tag de la imagen en ECR. Immutable: cada deploy usa un tag nuevo."
   type        = string
-  default     = "0.1.1"
+  default     = "0.1.2"
 }
 
 variable "lambda_memory_mb" {
@@ -74,7 +74,7 @@ variable "jwt_secret" {
 
 variable "portal_base_url" {
   type    = string
-  default = "http://localhost:5500"
+  default = "http://localhost:3000"
 }
 
 variable "jwt_issuer" {
@@ -85,4 +85,49 @@ variable "jwt_issuer" {
 variable "jwt_audience" {
   type    = string
   default = "kenko-api"
+}
+
+variable "db_name" {
+  type    = string
+  default = "kenko_auth"
+}
+
+variable "db_username" {
+  type    = string
+  default = "kenko_auth"
+}
+
+variable "api_image_tag" {
+  description = "Tag de la imagen API en ECR. Immutable: cada deploy usa tag nuevo."
+  type        = string
+  default     = "0.1.2"
+}
+
+variable "api_port" {
+  type    = number
+  default = 3000
+}
+
+variable "api_cpu" {
+  description = "CPU Fargate API (256 = 0.25 vCPU, lo minimo)."
+  type        = string
+  default     = "256"
+}
+
+variable "api_memory" {
+  description = "Memoria Fargate API en MB (512 minimo con 256 CPU)."
+  type        = string
+  default     = "512"
+}
+
+variable "budget_limit_usd" {
+  description = "Alerta de presupuesto mensual en USD."
+  type        = string
+  default     = "25"
+}
+
+variable "cors_origins" {
+  description = "CORS para API en dev. Vacio aplica defaults locales."
+  type        = string
+  default     = ""
 }
