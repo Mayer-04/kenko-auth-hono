@@ -39,6 +39,17 @@ resource "aws_security_group" "endpoints" {
     security_groups = [aws_security_group.ec2.id]
   }
 
+  # Profile comparte esta VPC y el DNS privado de los endpoints: sin esto
+  # sus tareas ECS no alcanzan logs/events. Mismo texto que la regla manual
+  # existente para no producir diff.
+  ingress {
+    description     = "HTTPS desde kenko-dev-profile-ecs-sg (logs/events)"
+    from_port       = 443
+    to_port         = 443
+    protocol        = "tcp"
+    security_groups = ["sg-04461420cbf40aec7"]
+  }
+
   egress {
     from_port   = 0
     to_port     = 0

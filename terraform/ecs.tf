@@ -37,6 +37,16 @@ resource "aws_security_group" "ecs" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
+  # Regla compartida que agrego Appointments en este SG; se fija en codigo
+  # para que un apply nuestro no los tumbe.
+  ingress {
+    description = "kenko-dev-appointments-api-8002-dev-only"
+    from_port   = 8002
+    to_port     = 8002
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
   egress {
     from_port   = 0
     to_port     = 0
