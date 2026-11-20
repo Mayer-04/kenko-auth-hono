@@ -116,11 +116,17 @@ export const makeRefreshSessionService = (
 		const tokenHash = deps.refreshTokens.hash(input.refreshToken);
 		const session = await deps.sessions.findSessionByTokenHash(tokenHash);
 		if (session === null) {
-			deps.logger.warn(LogEvent.LOGIN_REFRESH_FAILED, { correlationId });
+			deps.logger.warn(LogEvent.LOGIN_REFRESH_FAILED, {
+				correlationId,
+				reason: "unknown",
+			});
 			throw invalidCredentials(correlationId);
 		}
 		if (!deps.refreshTokens.equals(session.tokenHash, tokenHash)) {
-			deps.logger.warn(LogEvent.LOGIN_REFRESH_FAILED, { correlationId });
+			deps.logger.warn(LogEvent.LOGIN_REFRESH_FAILED, {
+				correlationId,
+				reason: "unknown",
+			});
 			throw invalidCredentials(correlationId);
 		}
 
@@ -133,11 +139,18 @@ export const makeRefreshSessionService = (
 			});
 			throw invalidCredentials(correlationId);
 		}
-		if (
-			session.status !== "active" ||
-			session.expiresAt <= deps.now().toISOString()
-		) {
-			deps.logger.warn(LogEvent.LOGIN_REFRESH_FAILED, { correlationId });
+		if (session.status !== "active") {
+			deps.logger.warn(LogEvent.LOGIN_REFRESH_FAILED, {
+				correlationId,
+				reason: "revoked",
+			});
+			throw invalidCredentials(correlationId);
+		}
+		if (session.expiresAt <= deps.now().toISOString()) {
+			deps.logger.warn(LogEvent.LOGIN_REFRESH_FAILED, {
+				correlationId,
+				reason: "expired",
+			});
 			throw invalidCredentials(correlationId);
 		}
 
@@ -178,7 +191,10 @@ export const makeRefreshSessionService = (
 					correlationId,
 				});
 			} else {
-				deps.logger.warn(LogEvent.LOGIN_REFRESH_FAILED, { correlationId });
+				deps.logger.warn(LogEvent.LOGIN_REFRESH_FAILED, {
+					correlationId,
+					reason: "race_lost",
+				});
 			}
 			throw invalidCredentials(correlationId);
 		}

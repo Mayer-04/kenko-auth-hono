@@ -4,7 +4,7 @@ import { makeJwtSigner } from "../../src/infra/token/jwt-signer.js";
 
 const OPTIONS = {
 	secret: "test-jwt-secret-con-al-menos-32-caracteres",
-	issuer: "kenko-auth",
+	issuer: "kenko.auth",
 	audience: "kenko-api",
 	kid: "hs256-01",
 };
@@ -25,7 +25,7 @@ describe("makeJwtSigner", () => {
 
 		const claims = await signer.verifyAccessToken(token);
 		expect(claims.sub).toBe(ARGS.subject);
-		expect(claims.iss).toBe("kenko-auth");
+		expect(claims.iss).toBe("kenko.auth");
 		expect(claims.aud).toBe("kenko-api");
 		expect(claims.jti).toBe(ARGS.tokenId);
 		expect(claims.exp - claims.iat).toBe(900);

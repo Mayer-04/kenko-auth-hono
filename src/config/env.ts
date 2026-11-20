@@ -84,7 +84,7 @@ export const EnvSchema = z.object({
 	JWT_ISSUER: z.preprocess(
 		(value) =>
 			typeof value === "string" && value.trim() === "" ? undefined : value,
-		z.string().min(1).default("kenko-auth"),
+		z.string().min(1).default("kenko.auth"),
 	),
 	JWT_AUDIENCE: z.preprocess(
 		(value) =>

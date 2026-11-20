@@ -17,6 +17,10 @@ import type {
  * `sub` y `jti` se exigen aqui porque el contrato los declara obligatorios).
  * Sin JWKS no hay llamadas HTTP entre servicios.
  *
+ * Tolerancia de reloj de 120s (`clockTolerance`) para empatar con
+ * Profile/Appointments: evita que en el borde del `exp` un servicio diga
+ * si y otro no por desfase de relojes.
+ *
  * El secreto llega por entorno (`JWT_SECRET`, minimo 32 caracteres) y nunca
  * se registra. Limitacion conocida y aceptada: cualquier servicio que
  * conozca el secreto podria emitir tokens validos.
@@ -65,6 +69,7 @@ export const makeJwtSigner = (
 				algorithms: ["HS256"],
 				issuer: options.issuer,
 				audience: options.audience,
+				clockTolerance: 120,
 			});
 			if (typeof payload.sub !== "string" || typeof payload.jti !== "string") {
 				throw new Error("Access token misses sub/jti.");

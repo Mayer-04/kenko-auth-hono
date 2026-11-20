@@ -154,7 +154,7 @@ export const buildTestApp = (
 	const sessions = makeRefreshSessionRepository(client);
 	const jwtSigner = makeJwtSigner({
 		secret: "test-jwt-secret-con-al-menos-32-caracteres",
-		issuer: "kenko-auth",
+		issuer: "kenko.auth",
 		audience: "kenko-api",
 		kid: LoginLimits.JWT_KID,
 	});

@@ -116,13 +116,13 @@ describe("sesion (login, refresh, logout)", () => {
 		// El access es un JWT HS256 verificable con iss/aud del contrato.
 		const verifier = makeJwtSigner({
 			secret: "test-jwt-secret-con-al-menos-32-caracteres",
-			issuer: "kenko-auth",
+			issuer: "kenko.auth",
 			audience: "kenko-api",
 			kid: LoginLimits.JWT_KID,
 		});
 		const claims = await verifier.verifyAccessToken(json.data.accessToken);
 		expect(claims.sub).toBe(user.userId);
-		expect(claims.iss).toBe("kenko-auth");
+		expect(claims.iss).toBe("kenko.auth");
 		expect(claims.aud).toBe("kenko-api");
 		expect(claims.exp - claims.iat).toBe(900);
 
