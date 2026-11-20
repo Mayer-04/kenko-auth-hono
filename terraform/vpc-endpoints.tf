@@ -50,6 +50,18 @@ resource "aws_security_group" "endpoints" {
     security_groups = ["sg-04461420cbf40aec7"]
   }
 
+  # Appointments corre sus tareas Fargate con este SG y comparte esta VPC
+  # y el DNS privado de los endpoints: sin esto sus tareas no alcanzan
+  # logs/events (503). Mismo texto que la regla que agregaron ellos
+  # (jprojas_42) para no producir diff. Precedente: commit 8e769b1 (profile).
+  ingress {
+    description     = "HTTPS desde kenko-dev-appointments-ecs (logs/events)"
+    from_port       = 443
+    to_port         = 443
+    protocol        = "tcp"
+    security_groups = ["sg-033261f5a0531fe94"]
+  }
+
   egress {
     from_port   = 0
     to_port     = 0
